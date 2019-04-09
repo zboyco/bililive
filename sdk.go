@@ -108,7 +108,10 @@ func (room *LiveRoom) receive() {
 
 		playloadBuffer := make([]byte, playloadlength)
 
-		room.conn.Read(playloadBuffer)
+		readLenght, err := room.conn.Read(playloadBuffer)
+		if err != nil {
+			log.Panic(err)
+		}
 
 		switch typeID {
 		case 3:
@@ -118,7 +121,7 @@ func (room *LiveRoom) receive() {
 			}
 		case 5:
 			result := cmdModel{}
-			err := json.Unmarshal(playloadBuffer, &result)
+			err := json.Unmarshal(playloadBuffer[:readLenght], &result)
 			if err != nil {
 				log.Panic(err)
 			}
@@ -162,7 +165,7 @@ func (room *LiveRoom) receive() {
 				}
 			default:
 				// log.Println(result.Data)
-				log.Println(string(playloadBuffer))
+				log.Println(string(playloadBuffer[:readLenght]))
 				break
 			}
 		default:
