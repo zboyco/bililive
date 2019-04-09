@@ -90,7 +90,7 @@ func (room *LiveRoom) receive() {
 		packetlength := binary.BigEndian.Uint32(buffer)
 
 		if packetlength < 16 {
-			log.Fatalln("协议失败")
+			log.Println("协议失败")
 			continue
 		}
 
@@ -111,7 +111,7 @@ func (room *LiveRoom) receive() {
 
 		readLenght, err := room.conn.Read(playloadBuffer)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			continue
 		}
 
@@ -125,13 +125,13 @@ func (room *LiveRoom) receive() {
 			result := cmdModel{}
 			err := json.Unmarshal(playloadBuffer[:readLenght], &result)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				log.Println(string(playloadBuffer[:readLenght]))
 				continue
 			}
 			temp, err := json.Marshal(result.Data)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				log.Println(result.Data)
 				continue
 			}
