@@ -4,10 +4,13 @@ import "net"
 
 // LiveRoom 直播间
 type LiveRoom struct {
-	RoomID              int              // 房间ID（兼容短ID）
-	ReceiveMsg          func(*MsgModel)  // 接收消息方法
-	ReceiveGift         func(*GiftModel) // 接收礼物方法
-	ReceivePopularValue func(uint32)     // 接收人气值方法
+	RoomID              int                    // 房间ID（兼容短ID）
+	ReceiveMsg          func(*MsgModel)        // 接收消息方法
+	ReceiveGift         func(*GiftModel)       // 接收礼物方法
+	ReceivePopularValue func(uint32)           // 接收人气值方法
+	UserEnter           func(*UserEnterModel)  // 用户进入方法
+	GuardEnter          func(*GuardEnterModel) // 舰长进入方法
+	GiftComboEnd        func(*ComboEndModel)   // 礼物连击结束方法
 	conn                *net.TCPConn
 }
 
@@ -36,24 +39,51 @@ type characterInfoReuslt struct {
 
 // 命令模型
 type cmdModel struct {
-	CMD  string        `json:"cmd"`
-	Info []interface{} `json:"info"`
-	Data *GiftModel    `json:"data"`
+	CMD  string                 `json:"cmd"`
+	Info []interface{}          `json:"info"`
+	Data map[string]interface{} `json:"data"`
+}
+
+// UserEnterModel 用户进入模型
+type UserEnterModel struct {
+	UserID   int    `json:"uid"`
+	UserName string `json:"uname"`
+	IsAdmin  bool   `json:"is_admin"`
+	VIP      int    `json:"vip"`
+	SVIP     int    `json:"svip"`
+}
+
+// GuardEnterModel 舰长进入模型
+type GuardEnterModel struct {
+	UserID     int    `json:"uid"`
+	UserName   string `json:"username"`
+	GuardLevel int    `json:"guard_level"`
 }
 
 // GiftModel 礼物模型
 type GiftModel struct {
-	GiftName string `json:"giftName"`  // 礼物名称
-	Num      int    `json:"num"`       // 数量
-	UserName string `json:"uname"`     // 用户名称
-	GiftID   int    `json:"giftId"`    // 礼物ID
-	Price    int    `json:"price"`     // 价格
-	CoinType string `json:"coin_type"` // 硬币类型
-	FaceURL  string `json:"face"`      // 头像url
+	GiftName string `json:"giftName"`       // 礼物名称
+	Num      int    `json:"num"`            // 数量
+	UserName string `json:"uname"`          // 用户名称
+	GiftID   int    `json:"giftId"`         // 礼物ID
+	Price    int    `json:"price"`          // 价格
+	CoinType string `json:"coin_type"`      // 硬币类型
+	FaceURL  string `json:"face"`           // 头像url
+	Combo    int    `json:"super_gift_num"` // 连击
 }
 
 // MsgModel 消息
 type MsgModel struct {
 	UserName string // 用户昵称
 	Content  string // 内容
+}
+
+// ComboEndModel 连击结束模型
+type ComboEndModel struct {
+	GiftName   string `json:"gift_name"`   // 礼物名称
+	ComboNum   int    `json:"combo_num"`   // 连击数量
+	UserName   string `json:"uname"`       // 用户名称
+	GiftID     int    `json:"gift_id"`     // 礼物ID
+	Price      int    `json:"price"`       // 价格
+	GuardLevel int    `json:"guard_level"` // 硬币类型
 }

@@ -117,27 +117,53 @@ func (room *LiveRoom) receive() {
 				room.ReceivePopularValue(viewer)
 			}
 		case 5:
-			//log.Println(string(playloadBuffer))
-			if room.ReceiveMsg != nil {
-				result := cmdModel{}
-				json.Unmarshal(playloadBuffer, &result)
-				switch result.CMD {
-				case "DANMU_MSG":
-					if room.ReceiveMsg != nil {
-						userInfo := result.Info[2].([]interface{})
-						msg := &MsgModel{
-							Content:  result.Info[1].(string),
-							UserName: userInfo[1].(string),
-						}
-						room.ReceiveMsg(msg)
-					}
-				case "SEND_GIFT":
-					if room.ReceiveGift != nil {
-						room.ReceiveGift(result.Data)
-					}
-				default:
-					break
+			result := cmdModel{}
+			err := json.Unmarshal(playloadBuffer, &result)
+			if err != nil {
+				log.Panic(err)
+			}
+			temp, err := json.Marshal(result.Data)
+			if err != nil {
+				log.Panic(err)
+			}
+			switch result.CMD {
+			case "WELCOME":
+				if room.UserEnter != nil {
+					m := &UserEnterModel{}
+					json.Unmarshal(temp, m)
+					room.UserEnter(m)
 				}
+			case "WELCOME_GUARD":
+				if room.GuardEnter != nil {
+					m := &GuardEnterModel{}
+					json.Unmarshal(temp, m)
+					room.GuardEnter(m)
+				}
+			case "DANMU_MSG":
+				if room.ReceiveMsg != nil {
+					userInfo := result.Info[2].([]interface{})
+					msg := &MsgModel{
+						Content:  result.Info[1].(string),
+						UserName: userInfo[1].(string),
+					}
+					room.ReceiveMsg(msg)
+				}
+			case "SEND_GIFT":
+				if room.ReceiveGift != nil {
+					m := &GiftModel{}
+					json.Unmarshal(temp, m)
+					room.ReceiveGift(m)
+				}
+			case "COMBO_END":
+				if room.GiftComboEnd != nil {
+					m := &ComboEndModel{}
+					json.Unmarshal(temp, m)
+					room.GiftComboEnd(m)
+				}
+			default:
+				// log.Println(result.Data)
+				log.Println(string(playloadBuffer))
+				break
 			}
 		default:
 			break
