@@ -90,7 +90,8 @@ func (room *LiveRoom) receive() {
 		packetlength := binary.BigEndian.Uint32(buffer)
 
 		if packetlength < 16 {
-			log.Panic("协议失败")
+			log.Fatalln("协议失败")
+			continue
 		}
 
 		room.conn.Read(buffer) // 过滤 magic,protocol_version
@@ -110,7 +111,8 @@ func (room *LiveRoom) receive() {
 
 		readLenght, err := room.conn.Read(playloadBuffer)
 		if err != nil {
-			log.Panic(err)
+			log.Fatal(err)
+			continue
 		}
 
 		switch typeID {
@@ -123,11 +125,15 @@ func (room *LiveRoom) receive() {
 			result := cmdModel{}
 			err := json.Unmarshal(playloadBuffer[:readLenght], &result)
 			if err != nil {
-				log.Panic(err)
+				log.Fatal(err)
+				log.Println(string(playloadBuffer[:readLenght]))
+				continue
 			}
 			temp, err := json.Marshal(result.Data)
 			if err != nil {
-				log.Panic(err)
+				log.Fatal(err)
+				log.Println(result.Data)
+				continue
 			}
 			switch result.CMD {
 			case "WELCOME":
