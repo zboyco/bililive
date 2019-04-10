@@ -34,6 +34,9 @@ func main() {
 		GiftComboEnd: func(m *bililive.ComboEndModel) {
 			log.Printf("【连击结束】%v 赠送 %v(价值%v) 总共连击 %v 次", m.UserName, m.GiftName, m.Price, m.ComboNum)
 		},
+		GuardBuy: func(m *bililive.GuardBuyModel) {
+			log.Printf("【上船】欢迎 %v - %v(%v) 上船", m.GiftName, m.UserName, m.UserID)
+		},
 	}
 	liveRoom.Start()
 }

@@ -11,7 +11,17 @@ type LiveRoom struct {
 	UserEnter           func(*UserEnterModel)  // 用户进入方法
 	GuardEnter          func(*GuardEnterModel) // 舰长进入方法
 	GiftComboEnd        func(*ComboEndModel)   // 礼物连击结束方法
-	conn                *net.TCPConn
+	GuardBuy            func(*GuardBuyModel)   // 上传模型
+
+	chMsg          chan *MsgModel
+	chGift         chan *GiftModel
+	chPopularValue chan uint32
+	chUserEnter    chan *UserEnterModel
+	chGuardEnter   chan *GuardEnterModel
+	chGiftComboEnd chan *ComboEndModel
+	chGuardBuy     chan *GuardBuyModel
+
+	conn *net.TCPConn
 }
 
 // 进入房间信息
@@ -85,5 +95,16 @@ type ComboEndModel struct {
 	UserName   string `json:"uname"`       // 用户名称
 	GiftID     int    `json:"gift_id"`     // 礼物ID
 	Price      int    `json:"price"`       // 价格
-	GuardLevel int    `json:"guard_level"` // 硬币类型
+	GuardLevel int    `json:"guard_level"` // 舰长等级
+}
+
+// GuardBuyModel 上船模型
+type GuardBuyModel struct {
+	GiftName   string `json:"gift_name"`   // 礼物名称
+	Num        int    `json:"num"`         // 数量
+	UserID     int    `json:"uid"`         // 用户ID
+	UserName   string `json:"username"`    // 用户名称
+	GiftID     int    `json:"gift_id"`     // 礼物ID
+	Price      int    `json:"price"`       // 价格
+	GuardLevel int    `json:"guard_level"` // 舰长等级
 }

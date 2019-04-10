@@ -22,6 +22,16 @@ func (room *LiveRoom) Start() {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	room.chMsg = make(chan *MsgModel)
+	room.chGift = make(chan *GiftModel)
+	room.chPopularValue = make(chan uint32)
+	room.chUserEnter = make(chan *UserEnterModel)
+	room.chGuardEnter = make(chan *GuardEnterModel)
+	room.chGiftComboEnd = make(chan *ComboEndModel)
+	room.chGuardBuy = make(chan *GuardBuyModel)
+
+	go room.notice()
 	room.enterRoom()
 	go room.heartBeat()
 	room.receive()
@@ -79,6 +89,27 @@ func (room *LiveRoom) heartBeat() {
 	for {
 		room.sendData(2, []byte{})
 		time.Sleep(30 * time.Second)
+	}
+}
+
+func (room *LiveRoom) notice() {
+	for {
+		select {
+		case m := <-room.chPopularValue:
+			room.ReceivePopularValue(m)
+		case m := <-room.chUserEnter:
+			room.UserEnter(m)
+		case m := <-room.chGuardEnter:
+			room.GuardEnter(m)
+		case m := <-room.chMsg:
+			room.ReceiveMsg(m)
+		case m := <-room.chGift:
+			room.ReceiveGift(m)
+		case m := <-room.chGiftComboEnd:
+			room.GiftComboEnd(m)
+		case m := <-room.chGuardBuy:
+			room.GuardBuy(m)
+		}
 	}
 }
 
@@ -140,38 +171,44 @@ func (room *LiveRoom) receive() {
 				if room.UserEnter != nil {
 					m := &UserEnterModel{}
 					json.Unmarshal(temp, m)
-					room.UserEnter(m)
+					room.chUserEnter <- m
 				}
 			case "WELCOME_GUARD":
 				if room.GuardEnter != nil {
 					m := &GuardEnterModel{}
 					json.Unmarshal(temp, m)
-					room.GuardEnter(m)
+					room.chGuardEnter <- m
 				}
 			case "DANMU_MSG":
 				if room.ReceiveMsg != nil {
 					userInfo := result.Info[2].([]interface{})
-					msg := &MsgModel{
+					m := &MsgModel{
 						Content:  result.Info[1].(string),
 						UserName: userInfo[1].(string),
 					}
-					room.ReceiveMsg(msg)
+					room.chMsg <- m
 				}
 			case "SEND_GIFT":
 				if room.ReceiveGift != nil {
 					m := &GiftModel{}
 					json.Unmarshal(temp, m)
-					room.ReceiveGift(m)
+					room.chGift <- m
 				}
 			case "COMBO_END":
 				if room.GiftComboEnd != nil {
 					m := &ComboEndModel{}
 					json.Unmarshal(temp, m)
-					room.GiftComboEnd(m)
+					room.chGiftComboEnd <- m
+				}
+			case "GUARD_BUY":
+				if room.GuardBuy != nil {
+					m := &GuardBuyModel{}
+					json.Unmarshal(temp, m)
+					room.chGuardBuy <- m
 				}
 			default:
 				// log.Println(result.Data)
-				log.Println(string(playloadBuffer[:readLenght]))
+				// log.Println(string(playloadBuffer[:readLenght]))
 				break
 			}
 		default:
