@@ -51,6 +51,9 @@ func main() {
 			buff, _ := json.Marshal(&m)
 			socket.sendTCP(buff)
 		},
+		ReceivePopularValue: func(value uint32) {
+			log.Printf("【人气】:  %v", value)
+		},
 	}
 	go liveRoom.Start()
 	scanner(socket)
