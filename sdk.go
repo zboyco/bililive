@@ -129,13 +129,17 @@ func (room *LiveRoom) notice() {
 // 接收消息
 func (room *LiveRoom) receive() {
 	for {
-		buffer := make([]byte, 4)
-		room.conn.Read(buffer)
-		packetlength := binary.BigEndian.Uint32(buffer)
+		// 包头总长16个字节,包括 数据包长(4),magic(2),protocol_version(2),typeid(4),params(4)
+		headBuffer, err := room.readPacket(16)
+		if err != nil {
+			log.Panicln(err)
+		}
 
-		if packetlength < 16 || packetlength > 2048 {
+		packetLength := binary.BigEndian.Uint32(headBuffer[:4])
+
+		if packetLength < 16 || packetLength > 3072 {
 			log.Println("***************协议失败***************")
-			log.Println("长度:", packetlength)
+			log.Println("数据包长度:", packetLength)
 			err := room.createConnect()
 			if err != nil {
 				log.Panic(err)
@@ -144,15 +148,9 @@ func (room *LiveRoom) receive() {
 			continue
 		}
 
-		room.conn.Read(buffer) // 过滤 magic,protocol_version
+		typeID := binary.BigEndian.Uint32(headBuffer[8:12]) // 读取typeid
 
-		room.conn.Read(buffer)
-
-		typeID := binary.BigEndian.Uint32(buffer)
-
-		room.conn.Read(buffer) // 过滤 params
-
-		playloadlength := packetlength - 16
+		playloadlength := packetLength - 16
 
 		if playloadlength == 0 {
 			continue
@@ -160,9 +158,9 @@ func (room *LiveRoom) receive() {
 
 		playloadBuffer, err := room.readPacket(playloadlength)
 		if err != nil {
-			log.Println(err)
-			continue
+			log.Panicln(err)
 		}
+
 		room.chBuffer <- &bufferInfo{TypeID: typeID, Buffer: playloadBuffer}
 	}
 }
