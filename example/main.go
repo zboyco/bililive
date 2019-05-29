@@ -4,6 +4,9 @@ import (
 	"flag"
 	"log"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/zboyco/bililive"
 )
 
@@ -14,6 +17,10 @@ func main() {
 		log.Fatalln("房间号错误!")
 		return
 	}
+	//远程获取pprof数据
+	go func() {
+		log.Println(http.ListenAndServe("localhost:8080", nil))
+	}()
 	liveRoom := &bililive.LiveRoom{
 		RoomID: *roomID,
 		ReceivePopularValue: func(v uint32) {

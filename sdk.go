@@ -18,26 +18,33 @@ const cidInfoURL string = "http://live.bilibili.com/api/player?id=cid:"
 
 // Start 开始接收
 func (room *LiveRoom) Start() {
-	err := room.createConnect()
+	err := room.findServer()
 	if err != nil {
 		log.Panic(err)
 	}
 
-	room.chMsg = make(chan *MsgModel)
-	room.chGift = make(chan *GiftModel)
-	room.chPopularValue = make(chan uint32)
-	room.chUserEnter = make(chan *UserEnterModel)
-	room.chGuardEnter = make(chan *GuardEnterModel)
-	room.chGiftComboEnd = make(chan *ComboEndModel)
-	room.chGuardBuy = make(chan *GuardBuyModel)
+	err = room.createConnect()
+	if err != nil {
+		log.Panic(err)
+	}
 
+	room.chBuffer = make(chan *bufferInfo, 1000)
+	room.chMsg = make(chan *MsgModel, 300)
+	room.chGift = make(chan *GiftModel, 100)
+	room.chPopularValue = make(chan uint32, 1)
+	room.chUserEnter = make(chan *UserEnterModel, 10)
+	room.chGuardEnter = make(chan *GuardEnterModel, 3)
+	room.chGiftComboEnd = make(chan *ComboEndModel, 10)
+	room.chGuardBuy = make(chan *GuardBuyModel, 3)
+
+	go room.analysis()
 	go room.notice()
 	room.enterRoom()
 	go room.heartBeat()
 	room.receive()
 }
 
-func (room *LiveRoom) createConnect() error {
+func (room *LiveRoom) findServer() error {
 	resRoom, err := httpSend(roomInfoURL + strconv.Itoa(room.RoomID))
 	if err != nil {
 		return err
@@ -55,7 +62,13 @@ func (room *LiveRoom) createConnect() error {
 	resStr := "<root>" + string(resCharacter) + "</root>"
 	characterInfo := characterInfoReuslt{}
 	xml.Unmarshal([]byte(resStr), &characterInfo)
-	conn, err := connect(characterInfo.DMServer, characterInfo.DMPort)
+	room.server = characterInfo.DMServer
+	room.port = characterInfo.DMPort
+	return nil
+}
+
+func (room *LiveRoom) createConnect() error {
+	conn, err := connect(room.server, room.port)
 	if err != nil {
 		return err
 	}
@@ -66,7 +79,7 @@ func (room *LiveRoom) createConnect() error {
 func (room *LiveRoom) enterRoom() {
 	enterInfo := &enterInfo{
 		RoomID: room.RoomID,
-		UserID: rand.Uint64(),
+		UserID: 9999999999 + rand.Uint64(),
 	}
 
 	playload, err := json.Marshal(enterInfo)
@@ -96,38 +109,45 @@ func (room *LiveRoom) notice() {
 	for {
 		select {
 		case m := <-room.chPopularValue:
-			room.ReceivePopularValue(m)
+			go room.ReceivePopularValue(m)
 		case m := <-room.chUserEnter:
-			room.UserEnter(m)
+			go room.UserEnter(m)
 		case m := <-room.chGuardEnter:
-			room.GuardEnter(m)
+			go room.GuardEnter(m)
 		case m := <-room.chMsg:
-			room.ReceiveMsg(m)
+			go room.ReceiveMsg(m)
 		case m := <-room.chGift:
-			room.ReceiveGift(m)
+			go room.ReceiveGift(m)
 		case m := <-room.chGiftComboEnd:
-			room.GiftComboEnd(m)
+			go room.GiftComboEnd(m)
 		case m := <-room.chGuardBuy:
-			room.GuardBuy(m)
+			go room.GuardBuy(m)
 		}
 	}
 }
 
 // 接收消息
 func (room *LiveRoom) receive() {
-	buffer := make([]byte, 4)
 	for {
+		buffer := make([]byte, 4)
 		room.conn.Read(buffer)
 		packetlength := binary.BigEndian.Uint32(buffer)
 
-		if packetlength < 16 {
-			log.Println("协议失败")
+		if packetlength < 16 || packetlength > 2048 {
+			log.Println("***************协议失败***************")
+			log.Println("长度:", packetlength)
+			err := room.createConnect()
+			if err != nil {
+				log.Panic(err)
+			}
+			room.enterRoom()
 			continue
 		}
 
 		room.conn.Read(buffer) // 过滤 magic,protocol_version
 
 		room.conn.Read(buffer)
+
 		typeID := binary.BigEndian.Uint32(buffer)
 
 		room.conn.Read(buffer) // 过滤 params
@@ -135,35 +155,52 @@ func (room *LiveRoom) receive() {
 		playloadlength := packetlength - 16
 
 		if playloadlength == 0 {
-			continue // 没有内容了
+			continue
 		}
 
-		playloadBuffer := make([]byte, playloadlength)
-
-		readLenght, err := room.conn.Read(playloadBuffer)
+		playloadBuffer, err := room.readPacket(playloadlength)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
+		room.chBuffer <- &bufferInfo{TypeID: typeID, Buffer: playloadBuffer}
+	}
+}
 
-		switch typeID {
+func (room *LiveRoom) readPacket(length uint32) ([]byte, error) {
+	buffer := make([]byte, length)
+	readLenght := 0
+	for uint32(readLenght) < length {
+		tmpReadLenght, err := room.conn.Read(buffer[readLenght:])
+		readLenght += tmpReadLenght
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buffer, nil
+}
+
+// 分析接收到的数据
+func (room *LiveRoom) analysis() {
+	for {
+		buffer := <-room.chBuffer
+		switch buffer.TypeID {
 		case 3:
 			if room.ReceivePopularValue != nil {
-				viewer := binary.BigEndian.Uint32(playloadBuffer)
+				viewer := binary.BigEndian.Uint32(buffer.Buffer)
 				room.ReceivePopularValue(viewer)
 			}
 		case 5:
 			result := cmdModel{}
-			err := json.Unmarshal(playloadBuffer[:readLenght], &result)
+			err := json.Unmarshal(buffer.Buffer, &result)
 			if err != nil {
 				log.Println(err)
-				log.Println(string(playloadBuffer[:readLenght]))
+				log.Println(string(buffer.Buffer))
 				continue
 			}
 			temp, err := json.Marshal(result.Data)
 			if err != nil {
 				log.Println(err)
-				log.Println(result.Data)
 				continue
 			}
 			switch result.CMD {
@@ -208,7 +245,7 @@ func (room *LiveRoom) receive() {
 				}
 			default:
 				// log.Println(result.Data)
-				// log.Println(string(playloadBuffer[:readLenght]))
+				// log.Println(string(buffer.Buffer))
 				break
 			}
 		default:

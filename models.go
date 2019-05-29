@@ -13,6 +13,7 @@ type LiveRoom struct {
 	GiftComboEnd        func(*ComboEndModel)   // 礼物连击结束方法
 	GuardBuy            func(*GuardBuyModel)   // 上传模型
 
+	chBuffer       chan *bufferInfo
 	chMsg          chan *MsgModel
 	chGift         chan *GiftModel
 	chPopularValue chan uint32
@@ -21,7 +22,14 @@ type LiveRoom struct {
 	chGiftComboEnd chan *ComboEndModel
 	chGuardBuy     chan *GuardBuyModel
 
-	conn *net.TCPConn
+	server string // 地址
+	port   int    // 端口
+	conn   *net.TCPConn
+}
+
+type bufferInfo struct {
+	TypeID uint32
+	Buffer []byte
 }
 
 // 进入房间信息
