@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -48,8 +50,11 @@ func main() {
 				Count: gift.Num,
 				User:  gift.UserName,
 			}
-			buff, _ := json.Marshal(&m)
-			socket.sendTCP(buff)
+			body, _ := json.Marshal(&m)
+			buff := bytes.NewBuffer([]byte{})
+			binary.Write(buff, binary.BigEndian, int16(len(body)))
+			binary.Write(buff, binary.LittleEndian, body)
+			socket.sendTCP(buff.Bytes())
 		},
 		ReceivePopularValue: func(value uint32) {
 			log.Printf("【人气】:  %v", value)
@@ -158,8 +163,11 @@ func scanner(s *socket) {
 				Count: count,
 				User:  "测试",
 			}
-			buff, _ := json.Marshal(&m)
-			s.sendTCP(buff)
+			body, _ := json.Marshal(&m)
+			buff := bytes.NewBuffer([]byte{})
+			binary.Write(buff, binary.BigEndian, int16(len(body)))
+			binary.Write(buff, binary.LittleEndian, body)
+			s.sendTCP(buff.Bytes())
 		}
 	}
 }
