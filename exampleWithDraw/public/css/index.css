@@ -1,0 +1,118 @@
+.bg {
+    background-image: url("/static/imgs/bg.png");
+    width: 473px;
+    height: 638px;
+}
+
+.btn-start {
+    background-image: url("/static/imgs/start.png");
+    width: 107px;
+    height: 99px;
+
+    position: absolute;
+    top: 125px;
+    left: 55px;
+
+    cursor: pointer;
+}
+
+.btn-start:hover {
+    transform: scale(1.1);
+}
+
+.btn-stop {
+    display: none;
+
+    background-image: url("/static/imgs/stop.png");
+    width: 107px;
+    height: 90px;
+
+    
+    position: absolute;
+    top: 125px;
+    left: 55px;
+
+    cursor: pointer;
+}
+
+
+.btn-stop:hover {
+    transform: scale(1.1);
+}
+
+.pull{
+    background-image: url("/static/imgs/pull.png");
+    width: 102px;
+    height: 281px;
+
+    position: absolute;
+    top: 60px;
+    left: 465px;
+    
+    cursor: pointer;
+}
+
+.pull:hover{
+    transform: rotate(1deg);
+}
+
+.pull.down{
+    transform: rotateX(180deg);
+
+    position: absolute;
+    top: 310px;
+}
+
+.point {
+    position: absolute;
+    top: 63px;
+    left: 105px;
+
+    width: 256px;
+    height: 20px;
+
+    outline: none;
+    border: none;
+    background: transparent;
+}
+
+.point-commit {
+    width: 48px;
+    height: 48px;
+    cursor: pointer;
+
+    position: absolute;
+    top: 48px;
+    left: 380px;
+}
+
+.window {
+    width: 210px;
+    height: 60px;
+
+    position: absolute;
+    top: 142px;
+    left: 185px;
+    text-align: center;
+    line-height: 60px;
+    font-size: 22px;
+    font-family: '幼圆';
+}
+
+.list{
+    width: 369px;
+    height: 326px;
+    position: absolute;
+    top: 246px;
+    left: 53px;
+    overflow: auto;
+    font-family: '幼圆';
+}
+
+.list > div.name {
+    height: 24px;
+    border: 1px solid rgb(236,131,176);
+    float: left;
+    padding: 2px 5px;
+    margin: 2px 4px;
+}

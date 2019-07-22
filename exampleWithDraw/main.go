@@ -28,17 +28,22 @@ func main() {
 		body: make(map[string]bool),
 		arr:  make([]string, 0),
 	}
-	go startWeb(m)
+	var point string
+	var run bool
+	go startWeb(m, &point, &run)
 	liveRoom := &bililive.LiveRoom{
 		RoomID: roomID,
 		ReceiveMsg: func(msg *bililive.MsgModel) {
-			log.Printf("【弹幕】%v:  %v", msg.UserName, msg.Content)
-			m.Lock()
-			if _, ok := m.body[msg.UserName]; !ok {
-				m.body[msg.UserName] = true
-				m.arr = append(m.arr, msg.UserName)
+			// log.Printf("【弹幕】%v:  %v", msg.UserName, msg.Content)
+			if run && point != "" && msg.Content == point {
+				// if run {
+				m.Lock()
+				if _, ok := m.body[msg.UserName]; !ok {
+					m.body[msg.UserName] = true
+					m.arr = append(m.arr, msg.UserName)
+				}
+				m.Unlock()
 			}
-			m.Unlock()
 		},
 		ReceivePopularValue: func(value uint32) {
 			log.Printf("【人气】:  %v", value)
