@@ -24,10 +24,8 @@ func main() {
 	if roomID <= 0 {
 		log.Fatalln("房间号错误!")
 	}
-	m := &memberModel{
-		body: make(map[string]bool),
-		arr:  make([]string, 0),
-	}
+	m := &memberModel{}
+	m.Reset()
 	var point string
 	var run bool
 	go startWeb(m, &point, &run)
@@ -36,13 +34,7 @@ func main() {
 		ReceiveMsg: func(msg *bililive.MsgModel) {
 			// log.Printf("【弹幕】%v:  %v", msg.UserName, msg.Content)
 			if run && point != "" && msg.Content == point {
-				// if run {
-				m.Lock()
-				if _, ok := m.body[msg.UserName]; !ok {
-					m.body[msg.UserName] = true
-					m.arr = append(m.arr, msg.UserName)
-				}
-				m.Unlock()
+				m.Add(msg.UserName)
 			}
 		},
 		ReceivePopularValue: func(value uint32) {

@@ -2,16 +2,9 @@ package main
 
 import (
 	"net/http"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 )
-
-type memberModel struct {
-	body map[string]bool
-	arr  []string
-	sync.Mutex
-}
 
 func startWeb(m *memberModel, point *string, run *bool) {
 	gin.SetMode(gin.ReleaseMode)
@@ -25,11 +18,7 @@ func startWeb(m *memberModel, point *string, run *bool) {
 	})
 	r.GET("/api/start", func(c *gin.Context) {
 		*run = true
-		m.Lock()
-		m.body = make(map[string]bool)
-		m.arr = make([]string, 0)
-		m.Unlock()
-
+		m.Reset()
 		c.JSON(http.StatusOK, nil)
 	})
 	r.GET("/api/stop", func(c *gin.Context) {
@@ -38,10 +27,8 @@ func startWeb(m *memberModel, point *string, run *bool) {
 		c.JSON(http.StatusOK, nil)
 	})
 	r.GET("/api/members", func(c *gin.Context) {
-		m.Lock()
-		result := m.arr
-		m.arr = make([]string, 0)
-		m.Unlock()
+
+		result := m.Pick()
 
 		c.JSON(http.StatusOK, gin.H{
 			"members": result,
