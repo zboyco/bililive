@@ -67,6 +67,9 @@
             },
             fail: function (status) {
                 // 此处放失败后执行的代码
+                if (run) {
+                    timer = setTimeout(getData, 1000)
+                }
             }
         });
     }
