@@ -1,11 +1,13 @@
 package bililive
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -128,9 +130,11 @@ func (room *LiveRoom) notice() {
 
 // 接收消息
 func (room *LiveRoom) receive() {
+	reader := bufio.NewReader(room.conn)
 	for {
 		// 包头总长16个字节,包括 数据包长(4),magic(2),protocol_version(2),typeid(4),params(4)
-		headBuffer, err := room.readPacket(16)
+		headBuffer := make([]byte, 16)
+		_, err := io.ReadFull(reader, headBuffer)
 		if err != nil {
 			log.Panicln(err)
 		}
@@ -156,26 +160,14 @@ func (room *LiveRoom) receive() {
 			continue
 		}
 
-		playloadBuffer, err := room.readPacket(playloadlength)
+		playloadBuffer := make([]byte, playloadlength)
+		_, err = io.ReadFull(reader, playloadBuffer)
 		if err != nil {
 			log.Panicln(err)
 		}
 
 		room.chBuffer <- &bufferInfo{TypeID: typeID, Buffer: playloadBuffer}
 	}
-}
-
-func (room *LiveRoom) readPacket(length uint32) ([]byte, error) {
-	buffer := make([]byte, length)
-	readLenght := 0
-	for uint32(readLenght) < length {
-		tmpReadLenght, err := room.conn.Read(buffer[readLenght:])
-		readLenght += tmpReadLenght
-		if err != nil {
-			return nil, err
-		}
-	}
-	return buffer, nil
 }
 
 // 分析接收到的数据
