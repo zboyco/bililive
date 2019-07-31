@@ -1,8 +1,8 @@
 package bililive
 
 import (
-	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"encoding/xml"
@@ -11,6 +11,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -25,10 +26,7 @@ func (room *LiveRoom) Start() {
 		log.Panic(err)
 	}
 
-	err = room.createConnect()
-	if err != nil {
-		log.Panic(err)
-	}
+	room.conn = <-room.createConnect()
 
 	room.chBuffer = make(chan *bufferInfo, 1000)
 	room.chMsg = make(chan *MsgModel, 300)
@@ -39,10 +37,15 @@ func (room *LiveRoom) Start() {
 	room.chGiftComboEnd = make(chan *ComboEndModel, 10)
 	room.chGuardBuy = make(chan *GuardBuyModel, 3)
 
-	go room.analysis()
-	go room.notice()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	for i, max := 0, runtime.NumCPU(); i < max; i++ {
+		go room.analysis(ctx)
+		go room.notice(ctx)
+	}
 	room.enterRoom()
-	go room.heartBeat()
+	go room.heartBeat(ctx)
 	room.receive()
 }
 
@@ -69,13 +72,17 @@ func (room *LiveRoom) findServer() error {
 	return nil
 }
 
-func (room *LiveRoom) createConnect() error {
-	conn, err := connect(room.server, room.port)
-	if err != nil {
-		return err
-	}
-	room.conn = conn
-	return nil
+func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
+	result := make(chan *net.TCPConn)
+	go func() {
+		defer close(result)
+		conn, err := connect(room.server, room.port)
+		if err != nil {
+			log.Panic(err)
+		}
+		result <- conn
+	}()
+	return result
 }
 
 func (room *LiveRoom) enterRoom() {
@@ -100,16 +107,24 @@ func connect(host string, port int) (*net.TCPConn, error) {
 }
 
 // 心跳
-func (room *LiveRoom) heartBeat() {
+func (room *LiveRoom) heartBeat(ctx context.Context) {
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		room.sendData(2, []byte{})
 		time.Sleep(30 * time.Second)
 	}
 }
 
-func (room *LiveRoom) notice() {
+func (room *LiveRoom) notice(ctx context.Context) {
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case m := <-room.chPopularValue:
 			go room.ReceivePopularValue(m)
 		case m := <-room.chUserEnter:
@@ -130,11 +145,10 @@ func (room *LiveRoom) notice() {
 
 // 接收消息
 func (room *LiveRoom) receive() {
-	reader := bufio.NewReader(room.conn)
 	for {
 		// 包头总长16个字节,包括 数据包长(4),magic(2),protocol_version(2),typeid(4),params(4)
 		headBuffer := make([]byte, 16)
-		_, err := io.ReadFull(reader, headBuffer)
+		_, err := io.ReadFull(room.conn, headBuffer)
 		if err != nil {
 			log.Panicln(err)
 		}
@@ -161,7 +175,7 @@ func (room *LiveRoom) receive() {
 		}
 
 		playloadBuffer := make([]byte, playloadlength)
-		_, err = io.ReadFull(reader, playloadBuffer)
+		_, err = io.ReadFull(room.conn, playloadBuffer)
 		if err != nil {
 			log.Panicln(err)
 		}
@@ -171,8 +185,14 @@ func (room *LiveRoom) receive() {
 }
 
 // 分析接收到的数据
-func (room *LiveRoom) analysis() {
+func (room *LiveRoom) analysis(ctx context.Context) {
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		buffer := <-room.chBuffer
 		switch buffer.TypeID {
 		case 3:
