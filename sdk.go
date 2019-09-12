@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"io"
 	"log"
@@ -17,7 +16,7 @@ import (
 )
 
 const roomInfoURL string = "https://api.live.bilibili.com/room/v1/Room/room_init?id="
-const cidInfoURL string = "http://live.bilibili.com/api/player?id=cid:"
+const cidInfoURL string = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id="
 
 // Start 开始接收
 func (room *LiveRoom) Start() {
@@ -60,15 +59,14 @@ func (room *LiveRoom) findServer() error {
 		return errors.New("房间不正确")
 	}
 	room.RoomID = roomInfo.Data.RoomID
-	resCharacter, err := httpSend(cidInfoURL + strconv.Itoa(room.RoomID))
+	resDanmuConfig, err := httpSend(cidInfoURL + strconv.Itoa(room.RoomID))
 	if err != nil {
 		return err
 	}
-	resStr := "<root>" + string(resCharacter) + "</root>"
-	characterInfo := characterInfoReuslt{}
-	xml.Unmarshal([]byte(resStr), &characterInfo)
-	room.server = characterInfo.DMServer
-	room.port = characterInfo.DMPort
+	danmuConfig := danmuConfigResult{}
+	json.Unmarshal(resDanmuConfig, &danmuConfig)
+	room.server = danmuConfig.Data.Host
+	room.port = danmuConfig.Data.Port
 	return nil
 }
 

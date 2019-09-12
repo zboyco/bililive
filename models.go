@@ -49,10 +49,14 @@ type roomInfoData struct {
 	RoomID int `json:"room_id"`
 }
 
-// 角色信息
-type characterInfoReuslt struct {
-	DMServer string `xml:"dm_server"`
-	DMPort   int    `xml:"dm_port"`
+// 弹幕信息
+type danmuConfigResult struct {
+	Data *danmuData `json:"data"`
+}
+
+type danmuData struct {
+	Host string `json:"host"`
+	Port int    `json:"port"`
 }
 
 // 命令模型
