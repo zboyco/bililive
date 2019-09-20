@@ -1,0 +1,128 @@
+.bg {
+    width: 455px;
+    height: 626px;
+}
+
+.bg.bg0 {
+    background-image: url("/static/imgs/bg2-0.png");
+}
+
+.bg.bg1 {
+    background-image: url("/static/imgs/bg2-1.png");
+}
+
+.btn-start {
+    background-image: url("/static/imgs/start2.png");
+    width: 106px;
+    height: 107px;
+
+    position: absolute;
+    top: 120px;
+    left: 55px;
+
+    cursor: pointer;
+}
+
+.btn-start:hover {
+    transform: scale(1.05);
+}
+
+.btn-stop {
+    display: none;
+
+    background-image: url("/static/imgs/stop2.png");
+    width: 106px;
+    height: 107px;
+
+    position: absolute;
+    top: 120px;
+    left: 55px;
+
+    cursor: pointer;
+}
+
+
+.btn-stop:hover {
+    transform: scale(1.05);
+}
+
+.pull {
+    background-image: url("/static/imgs/pull2.png");
+    width: 93px;
+    height: 265px;
+
+    position: absolute;
+    top: 60px;
+    left: 459px;
+
+    cursor: pointer;
+}
+
+.pull:hover {
+    transform: rotate(1deg);
+}
+
+.pull.down {
+    transform: rotateX(180deg);
+
+    position: absolute;
+    top: 310px;
+}
+
+.point {
+    position: absolute;
+    top: 68px;
+    left: 65px;
+
+    width: 260px;
+    height: 20px;
+
+    outline: none;
+    border: none;
+    background: transparent;
+}
+
+.point-commit {
+    width: 77px;
+    height: 38px;
+    cursor: pointer;
+    background-image: url("/static/imgs/setting2.png");
+    position: absolute;
+    top: 62px;
+    left: 345px;
+}
+
+.point-commit:hover {
+    transform: scale(1.05);
+}
+
+.window {
+    width: 230px;
+    height: 60px;
+
+    position: absolute;
+    top: 145px;
+    left: 173px;
+    text-align: center;
+    line-height: 60px;
+    font-size: 22px;
+    font-family: '幼圆';
+}
+
+.list {
+    width: 365px;
+    height: 326px;
+    position: absolute;
+    top: 255px;
+    left: 53px;
+    overflow: auto;
+    font-family: '幼圆';
+}
+
+.list > div.name {
+    height: 24px;
+    border: 1px solid rgb(236, 131, 176);
+    float: left;
+    padding: 2px 5px;
+    margin: 2px 4px;
+}

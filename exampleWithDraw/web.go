@@ -35,7 +35,7 @@ func startWeb(m *memberModel, point *string, run *bool) {
 		})
 	})
 	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
+		c.HTML(http.StatusOK, "index2.html", nil)
 	})
 
 	r.Run()

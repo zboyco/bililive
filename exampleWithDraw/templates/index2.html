@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="/static/css/index2.css" type="text/css"/>
+</head>
+
+<body>
+<div>
+    <div id="bg" class="bg bg0"></div>
+    <div id="startBtn" class="btn-start" onclick="start()"></div>
+    <div id="stopBtn" class="btn-stop" onclick="stop()"></div>
+    <div id="pull" class="pull" onclick="draw()"></div>
+    <input id="point" type="text" class="point" value=""/>
+    <div class="point-commit" onclick="setPoint()"></div>
+    <div id="winner" class="window">等待抽奖</div>
+    <div id="list" class="list"></div>
+</div>
+</body>
+<script>
+    let timer = null, run = false, members = [];
+
+    const bg = document.querySelector("#bg");
+    const point = document.querySelector("#point");
+    const startBtn = document.querySelector("#startBtn");
+    const stopBtn = document.querySelector("#stopBtn");
+    const list = document.querySelector("#list");
+    const winner = document.querySelector("#winner");
+    const pull = document.querySelector("#pull");
+
+    function setPoint() {
+        ajax({
+            url: "/api/set",              //请求地址
+            type: "GET",                       //请求方式
+            data: {"point": point.value},        //请求参数
+            dataType: "json",
+            success: function (response, xml) {
+                alert("设置成功!")
+            },
+            fail: function (status) {
+                alert("设置失败!")
+            }
+        });
+    }
+
+    function getData() {
+        clearTimeout(timer);
+        ajax({
+            url: "/api/members",              //请求地址
+            type: "GET",                       //请求方式
+            data: {},        //请求参数
+            dataType: "json",
+            success: function (response, xml) {
+                if (run) {
+                    var result = JSON.parse(response);
+                    for (i in result.members) {
+                        members.push(result.members[i])
+                        list.innerHTML += '<div class="name">' + result.members[i] + '</div>';
+                    }
+                }
+                if (run) {
+                    timer = setTimeout(getData, 1000)
+                }
+            },
+            fail: function (status) {
+                // 此处放失败后执行的代码
+                if (run) {
+                    timer = setTimeout(getData, 1000)
+                }
+            }
+        });
+    }
+
+    function start() {
+        startBtn.style.display = "none";
+        stopBtn.style.display = "block";
+        ajax({
+            url: "/api/start",              //请求地址
+            type: "GET",                       //请求方式
+            data: {},        //请求参数
+            dataType: "json",
+            success: function (response, xml) {
+                list.innerHTML = "";
+                members = [];
+                run = true;
+                timer = setTimeout(getData, 100)
+            },
+            fail: function (status) {
+                alert("开始失败!")
+                stopBtn.style.display = "none";
+                startBtn.style.display = "block";
+            }
+        });
+    }
+
+    function stop() {
+        stopBtn.style.display = "none";
+        startBtn.style.display = "block";
+        run = false;
+        clearTimeout(timer);
+        ajax({
+            url: "/api/stop",              //请求地址
+            type: "GET",                       //请求方式
+            data: {},        //请求参数
+            dataType: "json",
+        });
+    }
+
+    var bgFlag = 0, bgTimeout = 800;
+
+    function normalBG() {
+        setTimeout(function () {
+            bgFlag = (bgFlag + 1) % 2;
+            bg.className = "bg bg" + bgFlag;
+            normalBG()
+        }, bgTimeout)
+    }
+
+    normalBG();
+
+    function draw() {
+        pull.className += " down";
+        setTimeout(() => {
+            pull.className = "pull";
+        }, 200);
+
+        const len = members.length;
+
+        if (len === 0) {
+            alert("没有名单，怎么抽奖啊233?");
+            return;
+        }
+
+        let count = 100, delay = 250;
+
+        var bgTimer = setInterval(function () {
+            if (bgTimeout > 100) {
+                bgTimeout -= 10;
+            }
+        }, 80);
+
+        function drawTimer() {
+            setTimeout(() => {
+                let rand = Math.floor(Math.random() * len);
+                winner.innerHTML = members[rand];
+                count--;
+                if (count > 80) {
+                    delay -= 10;
+                }
+                if (count < 20) {
+                    delay += 15;
+                }
+                if (count > 0) {
+                    drawTimer();
+                }
+                if (count <= 0) {
+                    clearInterval(bgTimer);
+                    bgTimeout = 800;
+                }
+            }, delay);
+        }
+
+        drawTimer();
+    }
+
+    function ajax(options) {
+        options = options || {};
+        options.type = (options.type || "GET").toUpperCase();
+        options.dataType = options.dataType || "json";
+        var params = formatParams(options.data);
+
+        //创建 - 非IE6 - 第一步
+        if (window.XMLHttpRequest) {
+            var xhr = new XMLHttpRequest();
+        } else { //IE6及其以下版本浏览器
+            var xhr = new ActiveXObject('Microsoft.XMLHTTP');
+        }
+
+        //接收 - 第三步
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4) {
+                var status = xhr.status;
+                if (status >= 200 && status < 300) {
+                    options.success && options.success(xhr.responseText, xhr.responseXML);
+                } else {
+                    options.fail && options.fail(status);
+                }
+            }
+        }
+
+        //连接 和 发送 - 第二步
+        if (options.type == "GET") {
+            xhr.open("GET", options.url + "?" + params, true);
+            xhr.send(null);
+        } else if (options.type == "POST") {
+            xhr.open("POST", options.url, true);
+            //设置表单提交时的内容类型
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            xhr.send(params);
+        }
+    }
+
+    //格式化参数
+    function formatParams(data) {
+        var arr = [];
+        for (var name in data) {
+            arr.push(encodeURIComponent(name) + "=" + encodeURIComponent(data[name]));
+        }
+        arr.push(("v=" + Math.random()).replace(".", ""));
+        return arr.join("&");
+    }
+</script>
+
+</html>
