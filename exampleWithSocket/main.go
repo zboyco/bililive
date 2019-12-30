@@ -16,9 +16,11 @@ import (
 )
 
 type msg struct {
+	ID    int    `json:"id"`
 	Name  string `json:"name"`
 	Count int    `json:"count"`
 	User  string `json:"username"`
+	Price int    `json:"price"`
 }
 
 func main() {
@@ -44,11 +46,13 @@ func main() {
 	liveRoom := &bililive.LiveRoom{
 		RoomID: roomID,
 		ReceiveGift: func(gift *bililive.GiftModel) {
-			log.Printf("【礼物】%v:  %v(%v) * %v  连击 %v", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Combo)
+			log.Printf("【礼物】%v:  %v(%v) * %v  价格 %v  连击 %v", gift.UserName, gift.GiftName, gift.GiftID, gift.Num,gift.Price, gift.Combo)
 			m := msg{
+				ID:    gift.GiftID,
 				Name:  gift.GiftName,
 				Count: gift.Num,
 				User:  gift.UserName,
+				Price: gift.Price,
 			}
 			body, _ := json.Marshal(&m)
 			buff := bytes.NewBuffer([]byte{})
