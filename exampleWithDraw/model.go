@@ -15,7 +15,7 @@ func (m *memberModel) Reset() {
 	m.arr = make([]string, 0)
 }
 
-func (m *memberModel) Add(id,v string) {
+func (m *memberModel) Add(id, v string) {
 	m.Lock()
 	defer m.Unlock()
 	if _, ok := m.body[id]; !ok {

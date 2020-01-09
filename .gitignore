@@ -2,3 +2,5 @@
 .idea
 *.exe
 debug
+.zip
+.7z
