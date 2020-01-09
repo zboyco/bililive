@@ -41,5 +41,8 @@ func main() {
 			log.Printf("【人气】:  %v", value)
 		},
 	}
+	fmt.Println()
+	fmt.Println("浏览器输入 http://127.0.0.1:8080 访问...")
+	fmt.Println()
 	liveRoom.Start()
 }

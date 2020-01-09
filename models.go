@@ -96,6 +96,7 @@ type GiftModel struct {
 
 // MsgModel 消息
 type MsgModel struct {
+	UserID   string // 用户ID
 	UserName string // 用户昵称
 	Content  string // 内容
 }

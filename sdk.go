@@ -230,6 +230,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					m := &MsgModel{
 						Content:  result.Info[1].(string),
 						UserName: userInfo[1].(string),
+						UserID:   strconv.FormatFloat(userInfo[0].(float64), 'f', -1, 64),
 					}
 					room.chMsg <- m
 				}
