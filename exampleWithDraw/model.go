@@ -15,11 +15,11 @@ func (m *memberModel) Reset() {
 	m.arr = make([]string, 0)
 }
 
-func (m *memberModel) Add(v string) {
+func (m *memberModel) Add(id,v string) {
 	m.Lock()
 	defer m.Unlock()
-	if _, ok := m.body[v]; !ok {
-		m.body[v] = true
+	if _, ok := m.body[id]; !ok {
+		m.body[id] = true
 		m.arr = append(m.arr, v)
 	}
 }

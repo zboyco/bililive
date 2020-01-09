@@ -34,7 +34,7 @@ func main() {
 		ReceiveMsg: func(msg *bililive.MsgModel) {
 			// log.Printf("【弹幕】%v:  %v", msg.UserName, msg.Content)
 			if run && point != "" && msg.Content == point {
-				m.Add(msg.UserName)
+				m.Add(msg.UserID,msg.UserName)
 			}
 		},
 		ReceivePopularValue: func(value uint32) {
