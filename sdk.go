@@ -8,15 +8,34 @@ import (
 	"errors"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"runtime"
 	"strconv"
 	"time"
 )
 
-const roomInfoURL string = "https://api.live.bilibili.com/room/v1/Room/room_init?id="
-const cidInfoURL string = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id="
+const (
+	roomInfoURL                      string = "https://api.live.bilibili.com/room/v1/Room/room_init?id="
+	cidInfoURL                       string = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id="
+	WS_OP_HEARTBEAT                  int32  = 2
+	WS_OP_HEARTBEAT_REPLY            int32  = 3
+	WS_OP_MESSAGE                    int32  = 5
+	WS_OP_USER_AUTHENTICATION        int32  = 7
+	WS_OP_CONNECT_SUCCESS            int32  = 8
+	WS_PACKAGE_HEADER_TOTAL_LENGTH   int32  = 16
+	WS_PACKAGE_OFFSET                int32  = 0
+	WS_HEADER_OFFSET                 int32  = 4
+	WS_VERSION_OFFSET                int32  = 6
+	WS_OPERATION_OFFSET              int32  = 8
+	WS_SEQUENCE_OFFSET               int32  = 12
+	WS_BODY_PROTOCOL_VERSION_NORMAL  int32  = 0
+	WS_BODY_PROTOCOL_VERSION_DEFLATE int32  = 2
+	WS_HEADER_DEFAULT_VERSION        int32  = 1
+	WS_HEADER_DEFAULT_OPERATION      int32  = 1
+	WS_HEADER_DEFAULT_SEQUENCE       int32  = 1
+	WS_AUTH_OK                       int32  = 0
+	WS_AUTH_TOKEN_ERROR              int32  = -101
+)
 
 // Start 开始接收
 func (room *LiveRoom) Start() {
@@ -65,8 +84,9 @@ func (room *LiveRoom) findServer() error {
 	}
 	danmuConfig := danmuConfigResult{}
 	json.Unmarshal(resDanmuConfig, &danmuConfig)
-	room.server = danmuConfig.Data.Host
-	room.port = danmuConfig.Data.Port
+	room.server = danmuConfig.Data.HostServerList[0].Host
+	room.port = danmuConfig.Data.HostServerList[0].Port
+	room.token = danmuConfig.Data.Token
 	return nil
 }
 
@@ -85,15 +105,20 @@ func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
 
 func (room *LiveRoom) enterRoom() {
 	enterInfo := &enterInfo{
-		RoomID: room.RoomID,
-		UserID: 9999999999 + rand.Uint64(),
+		RoomID:    room.RoomID,
+		UserID:    0,
+		ProtoVer:  1,
+		Platform:  "web",
+		ClientVer: "1.10.6",
+		Type:      2,
+		Key:       room.token,
 	}
 
 	playload, err := json.Marshal(enterInfo)
 	if err != nil {
 		log.Panic(err)
 	}
-	room.sendData(7, playload)
+	room.sendData(WS_OP_USER_AUTHENTICATION, playload)
 }
 
 func connect(host string, port int) (*net.TCPConn, error) {
@@ -144,18 +169,20 @@ func (room *LiveRoom) notice(ctx context.Context) {
 // 接收消息
 func (room *LiveRoom) receive() {
 	for {
-		// 包头总长16个字节,包括 数据包长(4),magic(2),protocol_version(2),typeid(4),params(4)
+		// 包头总长16个字节
 		headBuffer := make([]byte, 16)
 		_, err := io.ReadFull(room.conn, headBuffer)
 		if err != nil {
 			log.Panicln(err)
 		}
 
-		packetLength := binary.BigEndian.Uint32(headBuffer[:4])
+		var head messageHeader
+		buf := bytes.NewReader(headBuffer)
+		binary.Read(buf, binary.BigEndian, &head)
 
-		if packetLength < 16 || packetLength > 3072 {
+		if head.Length < 16 {
 			log.Println("***************协议失败***************")
-			log.Println("数据包长度:", packetLength)
+			log.Println("数据包长度:", head.Length)
 			err := room.createConnect()
 			if err != nil {
 				log.Panic(err)
@@ -164,21 +191,17 @@ func (room *LiveRoom) receive() {
 			continue
 		}
 
-		typeID := binary.BigEndian.Uint32(headBuffer[8:12]) // 读取typeid
-
-		playloadlength := packetLength - 16
-
-		if playloadlength == 0 {
+		if head.Length == 16 {
 			continue
 		}
 
-		playloadBuffer := make([]byte, playloadlength)
-		_, err = io.ReadFull(room.conn, playloadBuffer)
+		payloadBuffer := make([]byte, head.Length-16)
+		_, err = io.ReadFull(room.conn, payloadBuffer)
 		if err != nil {
 			log.Panicln(err)
 		}
 
-		room.chBuffer <- &bufferInfo{TypeID: typeID, Buffer: playloadBuffer}
+		room.chBuffer <- &bufferInfo{Operation: head.Operation, Buffer: payloadBuffer}
 	}
 }
 
@@ -192,13 +215,17 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 		}
 
 		buffer := <-room.chBuffer
-		switch buffer.TypeID {
-		case 3:
+		switch buffer.Operation {
+		case WS_OP_HEARTBEAT_REPLY:
 			if room.ReceivePopularValue != nil {
 				viewer := binary.BigEndian.Uint32(buffer.Buffer)
 				room.ReceivePopularValue(viewer)
 			}
-		case 5:
+		case WS_OP_USER_AUTHENTICATION:
+			log.Println(string(buffer.Buffer))
+		case WS_OP_CONNECT_SUCCESS:
+			log.Println(string(buffer.Buffer))
+		case WS_OP_MESSAGE:
 			result := cmdModel{}
 			err := json.Unmarshal(buffer.Buffer, &result)
 			if err != nil {
@@ -254,7 +281,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				}
 			default:
 				// log.Println(result.Data)
-				// log.Println(string(buffer.Buffer))
+				log.Println(string(buffer.Buffer))
 				break
 			}
 		default:
@@ -264,19 +291,17 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 }
 
 // 发送数据
-func (room *LiveRoom) sendData(action int, playload []byte) {
-	packetlength := len(playload) + 16
+func (room *LiveRoom) sendData(operation int32, playload []byte) {
 
 	b := bytes.NewBuffer([]byte{})
-	binary.Write(b, binary.BigEndian, int32(packetlength))
-
-	binary.Write(b, binary.BigEndian, int16(16))
-
-	binary.Write(b, binary.BigEndian, int16(1))
-
-	binary.Write(b, binary.BigEndian, int32(action))
-
-	binary.Write(b, binary.BigEndian, int32(1))
+	head := messageHeader{
+		Length:          int32(len(playload) + 16),
+		HeaderLength:    16,
+		ProtocolVersion: 1,
+		Operation:       operation,
+		SequenceID:      1,
+	}
+	binary.Write(b, binary.BigEndian, head)
 
 	binary.Write(b, binary.LittleEndian, playload)
 

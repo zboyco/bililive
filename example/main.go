@@ -36,7 +36,11 @@ func main() {
 			log.Printf("【弹幕】%v:  %v", msg.UserName, msg.Content)
 		},
 		ReceiveGift: func(gift *bililive.GiftModel) {
-			log.Printf("【礼物】%v:  %v(%v) * %v  连击 %v", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Combo)
+			coin := "银瓜子"
+			if gift.CoinType == "gold" {
+				coin = "金瓜子"
+			}
+			log.Printf("【礼物】%s:  %s(%d) * %d | 价值 %d个%s", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price*gift.Num, coin)
 		},
 		GiftComboEnd: func(m *bililive.ComboEndModel) {
 			log.Printf("【连击】%v 赠送 %v(价值%v) 总共连击 %v 次", m.UserName, m.GiftName, m.Price, m.ComboNum)

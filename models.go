@@ -24,18 +24,32 @@ type LiveRoom struct {
 
 	server string // 地址
 	port   int    // 端口
+	token  string // key
 	conn   *net.TCPConn
 }
 
+type messageHeader struct {
+	Length          int32
+	HeaderLength    int16
+	ProtocolVersion int16
+	Operation       int32
+	SequenceID      int32
+}
+
 type bufferInfo struct {
-	TypeID uint32
-	Buffer []byte
+	Operation int32
+	Buffer    []byte
 }
 
 // 进入房间信息
 type enterInfo struct {
-	RoomID int    `json:"roomid"`
-	UserID uint64 `json:"uid"`
+	RoomID    int    `json:"roomid"`
+	UserID    uint64 `json:"uid"`
+	ProtoVer  int    `json:"protover"`
+	Platform  string `json:"platform"`
+	ClientVer string `json:"clientver"`
+	Type      int    `json:"type"`
+	Key       string `json:"key"`
 }
 
 // 房间信息
@@ -55,8 +69,15 @@ type danmuConfigResult struct {
 }
 
 type danmuData struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+	Host           string `json:"host"`
+	Port           int    `json:"port"`
+	HostServerList []struct {
+		Host    string
+		Port    int `json:"port"`
+		WssPort int `json:"wss_port"`
+		WsPort  int `json:"ws_port"`
+	} `json:"host_server_list"`
+	Token string `json:"token"`
 }
 
 // 命令模型
