@@ -152,11 +152,11 @@ func (room *LiveRoom) enterRoom() {
 		Key:       room.token,
 	}
 
-	playload, err := json.Marshal(enterInfo)
+	payload, err := json.Marshal(enterInfo)
 	if err != nil {
 		log.Panic(err)
 	}
-	room.sendData(WS_OP_USER_AUTHENTICATION, playload)
+	room.sendData(WS_OP_USER_AUTHENTICATION, payload)
 }
 
 func connect(host string, port int) (*net.TCPConn, error) {
@@ -450,11 +450,11 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 }
 
 // 发送数据
-func (room *LiveRoom) sendData(operation int32, playload []byte) {
+func (room *LiveRoom) sendData(operation int32, payload []byte) {
 
 	b := bytes.NewBuffer([]byte{})
 	head := messageHeader{
-		Length:          int32(len(playload)) + WS_PACKAGE_HEADER_TOTAL_LENGTH,
+		Length:          int32(len(payload)) + WS_PACKAGE_HEADER_TOTAL_LENGTH,
 		HeaderLength:    int16(WS_PACKAGE_HEADER_TOTAL_LENGTH),
 		ProtocolVersion: WS_HEADER_DEFAULT_VERSION,
 		Operation:       operation,
@@ -465,7 +465,7 @@ func (room *LiveRoom) sendData(operation int32, playload []byte) {
 		log.Println(err)
 	}
 
-	err = binary.Write(b, binary.LittleEndian, playload)
+	err = binary.Write(b, binary.LittleEndian, payload)
 	if err != nil && room.Debug {
 		log.Println(err)
 	}
