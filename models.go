@@ -19,6 +19,7 @@ type LiveRoom struct {
 	RoomChange          func(*RoomChangeModel)       // 房间信息变更
 	SpecialGift         func(*SpecialGiftModel)      // 特殊礼物
 	SuperChatMessage    func(*SuperChatMessageModel) // 超级留言
+	SysMessage          func(*SysMsgModel)           // 系统信息
 
 	chRoomDetail       chan *RoomDetailModel
 	chBuffer           chan *bufferInfo
@@ -35,6 +36,7 @@ type LiveRoom struct {
 	chRoomChange       chan *RoomChangeModel
 	chSpecialGift      chan *SpecialGiftModel
 	chSuperChatMessage chan *SuperChatMessageModel
+	chSysMessage       chan *SysMsgModel
 
 	server string // 地址
 	port   int    // 端口
@@ -120,6 +122,13 @@ type cmdModel struct {
 	CMD  string                 `json:"cmd"`
 	Info []interface{}          `json:"info"`
 	Data map[string]interface{} `json:"data"`
+}
+
+// SysMsgModel 系统信息
+type SysMsgModel struct {
+	Cmd     string `json:"cmd"`
+	Msg     string `json:"msg"`
+	MsgText string `json:"msg_text"`
 }
 
 // UserEnterModel 用户进入模型

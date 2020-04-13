@@ -51,6 +51,7 @@ func (room *LiveRoom) Start() {
 
 	room.chRoomDetail = make(chan *RoomDetailModel, 1)
 	room.chBuffer = make(chan *bufferInfo, 1000)
+	room.chSysMessage = make(chan *SysMsgModel, 3)
 	room.chMsg = make(chan *MsgModel, 300)
 	room.chGift = make(chan *GiftModel, 100)
 	room.chPopularValue = make(chan uint32, 1)
@@ -181,6 +182,8 @@ func (room *LiveRoom) notice(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case m := <-room.chSysMessage:
+			go room.SysMessage(m)
 		case m := <-room.chPopularValue:
 			go room.ReceivePopularValue(m)
 		case m := <-room.chUserEnter:
@@ -288,9 +291,9 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				room.ReceivePopularValue(viewer)
 			}
 		case WS_OP_USER_AUTHENTICATION:
-			log.Println(string(buffer.Buffer))
+			log.Println("USER_AUTHENTICATION", string(buffer.Buffer))
 		case WS_OP_CONNECT_SUCCESS:
-			log.Println(string(buffer.Buffer))
+			log.Println("CONNECT_SUCCESS", string(buffer.Buffer))
 		case WS_OP_MESSAGE:
 			result := cmdModel{}
 			err := json.Unmarshal(buffer.Buffer, &result)
@@ -305,6 +308,12 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				continue
 			}
 			switch result.CMD {
+			case "SYS_MSG": // 系统消息
+				if room.SysMessage != nil {
+					m := &SysMsgModel{}
+					json.Unmarshal(buffer.Buffer, m)
+					room.chSysMessage <- m
+				}
 			case "ROOM_CHANGE": // 房间信息变更
 				if room.RoomChange != nil {
 					m := &RoomChangeModel{}
