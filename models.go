@@ -187,6 +187,6 @@ type FansUpdateModel struct {
 // RankModel 小时榜模型
 type RankModel struct {
 	RoomID    int    `json:"roomid"`
-	RankDesk  string `json:"rank_desk"`
+	RankDesc  string `json:"rank_desc"`
 	Timestamp int64  `json:"timestamp"`
 }

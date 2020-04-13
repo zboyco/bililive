@@ -2,6 +2,7 @@ package bililive
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -31,8 +32,8 @@ const (
 	//WS_OPERATION_OFFSET              int32 = 8
 	//WS_SEQUENCE_OFFSET               int32 = 12
 	//WS_BODY_PROTOCOL_VERSION_NORMAL  int32 = 0
-	//WS_BODY_PROTOCOL_VERSION_DEFLATE int32 = 2
-	WS_HEADER_DEFAULT_VERSION int16 = 1
+	WS_BODY_PROTOCOL_VERSION_DEFLATE int16 = 2
+	WS_HEADER_DEFAULT_VERSION        int16 = 1
 	//WS_HEADER_DEFAULT_OPERATION      int32 = 1
 	WS_HEADER_DEFAULT_SEQUENCE int32 = 1
 	WS_AUTH_OK                 int32 = 0
@@ -137,7 +138,7 @@ func (room *LiveRoom) enterRoom() {
 	enterInfo := &enterInfo{
 		RoomID:    room.RoomID,
 		UserID:    0,
-		ProtoVer:  1,
+		ProtoVer:  2,
 		Platform:  "web",
 		ClientVer: "1.10.6",
 		Type:      2,
@@ -206,32 +207,22 @@ func (room *LiveRoom) notice(ctx context.Context) {
 
 // 接收消息
 func (room *LiveRoom) receive() {
+	// 包头总长16个字节
+	headerBuffer := make([]byte, WS_PACKAGE_HEADER_TOTAL_LENGTH)
+	// headerBufferReader
+	var headerBufferReader *bytes.Reader
+	// 包体
+	messageBody := make([]byte, 0)
 	for {
-		// 包头总长16个字节
-		headBuffer := make([]byte, WS_PACKAGE_HEADER_TOTAL_LENGTH)
-		_, err := io.ReadFull(room.conn, headBuffer)
+
+		_, err := io.ReadFull(room.conn, headerBuffer)
 		if err != nil {
 			log.Panicln(err)
 		}
 
 		var head messageHeader
-		buf := bytes.NewReader(headBuffer)
-		binary.Read(buf, binary.BigEndian, &head)
-
-		if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
-			log.Println("***************协议失败***************")
-			log.Println("数据包长度:", head.Length)
-			err := room.createConnect()
-			if err != nil {
-				log.Panic(err)
-			}
-			room.enterRoom()
-			continue
-		}
-
-		if head.Length == WS_PACKAGE_HEADER_TOTAL_LENGTH {
-			continue
-		}
+		headerBufferReader = bytes.NewReader(headerBuffer)
+		binary.Read(headerBufferReader, binary.BigEndian, &head)
 
 		payloadBuffer := make([]byte, head.Length-WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err = io.ReadFull(room.conn, payloadBuffer)
@@ -239,7 +230,36 @@ func (room *LiveRoom) receive() {
 			log.Panicln(err)
 		}
 
-		room.chBuffer <- &bufferInfo{Operation: head.Operation, Buffer: payloadBuffer}
+		messageBody = append(headerBuffer, payloadBuffer...)
+
+		for len(messageBody) > 0 {
+			headerBufferReader = bytes.NewReader(messageBody[:WS_PACKAGE_HEADER_TOTAL_LENGTH])
+			binary.Read(headerBufferReader, binary.BigEndian, &head)
+			payloadBuffer = messageBody[WS_PACKAGE_HEADER_TOTAL_LENGTH:head.Length]
+			messageBody = messageBody[head.Length:]
+
+			if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
+				log.Println("***************协议失败***************")
+				log.Println("数据包长度:", head.Length)
+				err := room.createConnect()
+				if err != nil {
+					log.Panic(err)
+				}
+				room.enterRoom()
+				continue
+			}
+
+			if head.Length == WS_PACKAGE_HEADER_TOTAL_LENGTH {
+				continue
+			}
+
+			if head.ProtocolVersion == WS_BODY_PROTOCOL_VERSION_DEFLATE {
+				messageBody = doZlibUnCompress(payloadBuffer)
+				continue
+			}
+
+			room.chBuffer <- &bufferInfo{Operation: head.Operation, Buffer: payloadBuffer}
+		}
 	}
 }
 
@@ -386,4 +406,13 @@ func (room *LiveRoom) sendData(operation int32, playload []byte) {
 	binary.Write(b, binary.LittleEndian, playload)
 
 	room.conn.Write(b.Bytes())
+}
+
+// 进行zlib解压缩
+func doZlibUnCompress(compressSrc []byte) []byte {
+	b := bytes.NewReader(compressSrc)
+	var out bytes.Buffer
+	r, _ := zlib.NewReader(b)
+	io.Copy(&out, r)
+	return out.Bytes()
 }
