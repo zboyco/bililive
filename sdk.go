@@ -62,6 +62,7 @@ func (room *LiveRoom) Start() {
 	room.chFansUpdate = make(chan *FansUpdateModel, 1)
 	room.chRank = make(chan *RankModel, 5)
 	room.chRoomChange = make(chan *RoomChangeModel, 1)
+	room.chSuperChatMessage = make(chan *SuperChatMessageModel, 2)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -206,6 +207,8 @@ func (room *LiveRoom) notice(ctx context.Context) {
 			go room.RoomChange(m)
 		case m := <-room.chSpecialGift:
 			go room.SpecialGift(m)
+		case m := <-room.chSuperChatMessage:
+			go room.SuperChatMessage(m)
 		}
 	}
 }
@@ -372,6 +375,15 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					json.Unmarshal(temp, m)
 					room.chSpecialGift <- m
 				}
+			case "SUPER_CHAT_MESSAGE": // 超级留言
+				if room.SpecialGift != nil {
+					m := &SpecialGiftModel{}
+					json.Unmarshal(temp, m)
+					room.chSpecialGift <- m
+				}
+			case "SUPER_CHAT_MESSAGE_JPN":
+				//log.Println(string(buffer.Buffer))
+				break
 			case "ACTIVITY_BANNER_UPDATE_V2":
 				//log.Println(string(buffer.Buffer))
 				break

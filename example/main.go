@@ -80,6 +80,9 @@ func main() {
 				log.Println(fmt.Sprintf("【节奏风暴】结束，id：%s", m.Storm.ID))
 			}
 		},
+		SuperChatMessage: func(m *bililive.SuperChatMessageModel) {
+			log.Println(fmt.Sprintf("【超级留言】%s ：%s | 价值 %d 元", m.UserInfo.UserName, m.Message, m.Price))
+		},
 	}
 	liveRoom.Start()
 }

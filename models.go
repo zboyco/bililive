@@ -4,35 +4,37 @@ import "net"
 
 // LiveRoom 直播间
 type LiveRoom struct {
-	RoomID              int                     // 房间ID（兼容短ID）
-	RoomInfo            func(*RoomDetailModel)  // 房间信息
-	ReceiveMsg          func(*MsgModel)         // 接收消息方法
-	ReceiveGift         func(*GiftModel)        // 接收礼物方法
-	ReceivePopularValue func(uint32)            // 接收人气值方法
-	UserEnter           func(*UserEnterModel)   // 用户进入方法
-	GuardEnter          func(*GuardEnterModel)  // 舰长进入方法
-	GiftComboSend       func(*ComboSendModel)   // 礼物连击方法
-	GiftComboEnd        func(*ComboEndModel)    // 礼物连击结束方法
-	GuardBuy            func(*GuardBuyModel)    // 上船
-	FansUpdate          func(*FansUpdateModel)  // 粉丝数更新
-	RoomRank            func(*RankModel)        // 小时榜
-	RoomChange          func(*RoomChangeModel)  // 房间信息变更
-	SpecialGift         func(*SpecialGiftModel) // 特殊礼物
+	RoomID              int                          // 房间ID（兼容短ID）
+	RoomInfo            func(*RoomDetailModel)       // 房间信息
+	ReceiveMsg          func(*MsgModel)              // 接收消息方法
+	ReceiveGift         func(*GiftModel)             // 接收礼物方法
+	ReceivePopularValue func(uint32)                 // 接收人气值方法
+	UserEnter           func(*UserEnterModel)        // 用户进入方法
+	GuardEnter          func(*GuardEnterModel)       // 舰长进入方法
+	GiftComboSend       func(*ComboSendModel)        // 礼物连击方法
+	GiftComboEnd        func(*ComboEndModel)         // 礼物连击结束方法
+	GuardBuy            func(*GuardBuyModel)         // 上船
+	FansUpdate          func(*FansUpdateModel)       // 粉丝数更新
+	RoomRank            func(*RankModel)             // 小时榜
+	RoomChange          func(*RoomChangeModel)       // 房间信息变更
+	SpecialGift         func(*SpecialGiftModel)      // 特殊礼物
+	SuperChatMessage    func(*SuperChatMessageModel) // 超级留言
 
-	chRoomDetail    chan *RoomDetailModel
-	chBuffer        chan *bufferInfo
-	chMsg           chan *MsgModel
-	chGift          chan *GiftModel
-	chPopularValue  chan uint32
-	chUserEnter     chan *UserEnterModel
-	chGuardEnter    chan *GuardEnterModel
-	chGiftComboSend chan *ComboSendModel
-	chGiftComboEnd  chan *ComboEndModel
-	chGuardBuy      chan *GuardBuyModel
-	chFansUpdate    chan *FansUpdateModel
-	chRank          chan *RankModel
-	chRoomChange    chan *RoomChangeModel
-	chSpecialGift   chan *SpecialGiftModel
+	chRoomDetail       chan *RoomDetailModel
+	chBuffer           chan *bufferInfo
+	chMsg              chan *MsgModel
+	chGift             chan *GiftModel
+	chPopularValue     chan uint32
+	chUserEnter        chan *UserEnterModel
+	chGuardEnter       chan *GuardEnterModel
+	chGiftComboSend    chan *ComboSendModel
+	chGiftComboEnd     chan *ComboEndModel
+	chGuardBuy         chan *GuardBuyModel
+	chFansUpdate       chan *FansUpdateModel
+	chRank             chan *RankModel
+	chRoomChange       chan *RoomChangeModel
+	chSpecialGift      chan *SpecialGiftModel
+	chSuperChatMessage chan *SuperChatMessageModel
 
 	server string // 地址
 	port   int    // 端口
@@ -216,4 +218,13 @@ type SpecialGiftModel struct {
 		Num     int    `json:"num"`
 		Time    int    `json:"time"`
 	} `json:"39"`
+}
+
+// SuperChatMessageModel 超级留言模型
+type SuperChatMessageModel struct {
+	Price    int    `json:"price"`
+	Message  string `json:"message"`
+	UserInfo struct {
+		UserName string `json:"uname"`
+	} `json:"user_info"`
 }
