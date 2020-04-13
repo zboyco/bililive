@@ -4,6 +4,7 @@ import "net"
 
 // LiveRoom 直播间
 type LiveRoom struct {
+	Debug               bool                         // 是否显示日志
 	RoomID              int                          // 房间ID（兼容短ID）
 	RoomInfo            func(*RoomDetailModel)       // 房间信息
 	ReceiveMsg          func(*MsgModel)              // 接收消息方法

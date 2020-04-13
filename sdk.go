@@ -104,7 +104,9 @@ func (room *LiveRoom) findServer() error {
 	if err != nil {
 		return err
 	}
-	//log.Println(string(resRoom))
+	if room.Debug {
+		log.Println(string(resRoom))
+	}
 	roomInfo := roomInfoResult{}
 	json.Unmarshal(resRoom, &roomInfo)
 	if roomInfo.Code != 0 {
@@ -115,7 +117,9 @@ func (room *LiveRoom) findServer() error {
 	if err != nil {
 		return err
 	}
-	//log.Println(string(resDanmuConfig))
+	if room.Debug {
+		log.Println(string(resDanmuConfig))
+	}
 	danmuConfig := danmuConfigResult{}
 	json.Unmarshal(resDanmuConfig, &danmuConfig)
 	room.server = danmuConfig.Data.HostServerList[0].Host
@@ -250,8 +254,10 @@ func (room *LiveRoom) receive() {
 			messageBody = messageBody[head.Length:]
 
 			if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
-				log.Println("***************协议失败***************")
-				log.Println("数据包长度:", head.Length)
+				if room.Debug {
+					log.Println("***************协议失败***************")
+					log.Println("数据包长度:", head.Length)
+				}
 				err := room.createConnect()
 				if err != nil {
 					log.Panic(err)
@@ -268,7 +274,9 @@ func (room *LiveRoom) receive() {
 				messageBody = doZlibUnCompress(payloadBuffer)
 				continue
 			}
-
+			if room.Debug {
+				log.Println(string(payloadBuffer))
+			}
 			room.chBuffer <- &bufferInfo{Operation: head.Operation, Buffer: payloadBuffer}
 		}
 	}
@@ -290,21 +298,25 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				viewer := binary.BigEndian.Uint32(buffer.Buffer)
 				room.ReceivePopularValue(viewer)
 			}
-		case WS_OP_USER_AUTHENTICATION:
-			log.Println("USER_AUTHENTICATION", string(buffer.Buffer))
 		case WS_OP_CONNECT_SUCCESS:
-			log.Println("CONNECT_SUCCESS", string(buffer.Buffer))
+			if room.Debug {
+				log.Println("CONNECT_SUCCESS", string(buffer.Buffer))
+			}
 		case WS_OP_MESSAGE:
 			result := cmdModel{}
 			err := json.Unmarshal(buffer.Buffer, &result)
 			if err != nil {
-				log.Println(err)
-				log.Println(string(buffer.Buffer))
+				if room.Debug {
+					log.Println(err)
+					log.Println(string(buffer.Buffer))
+				}
 				continue
 			}
 			temp, err := json.Marshal(result.Data)
 			if err != nil {
-				log.Println(err)
+				if room.Debug {
+					log.Println(err)
+				}
 				continue
 			}
 			switch result.CMD {
@@ -391,36 +403,45 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.chSpecialGift <- m
 				}
 			case "SUPER_CHAT_MESSAGE_JPN":
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			case "ACTIVITY_BANNER_UPDATE_V2":
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			case "ANCHOR_LOT_CHECKSTATUS":
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			case "GUARD_MSG": // 舰长信息
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			case "NOTICE_MSG": // 通知信息
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			case "GUARD_LOTTERY_START": // 舰长抽奖开始
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			case "USER_TOAST_MSG": // 用户通知消息
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			case "ENTRY_EFFECT": // 进入效果
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			case "WISH_BOTTLE": // 许愿瓶
-				//log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			default:
-				// log.Println(result.Data)
-				log.Println(string(buffer.Buffer))
-				break
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			}
 		default:
 			break
@@ -439,18 +460,33 @@ func (room *LiveRoom) sendData(operation int32, playload []byte) {
 		Operation:       operation,
 		SequenceID:      WS_HEADER_DEFAULT_SEQUENCE,
 	}
-	binary.Write(b, binary.BigEndian, head)
+	err := binary.Write(b, binary.BigEndian, head)
+	if err != nil && room.Debug {
+		log.Println(err)
+	}
 
-	binary.Write(b, binary.LittleEndian, playload)
+	err = binary.Write(b, binary.LittleEndian, playload)
+	if err != nil && room.Debug {
+		log.Println(err)
+	}
 
-	room.conn.Write(b.Bytes())
+	_, err = room.conn.Write(b.Bytes())
+	if err != nil && room.Debug {
+		log.Println(err)
+	}
 }
 
 // 进行zlib解压缩
 func doZlibUnCompress(compressSrc []byte) []byte {
 	b := bytes.NewReader(compressSrc)
 	var out bytes.Buffer
-	r, _ := zlib.NewReader(b)
-	io.Copy(&out, r)
+	r, err := zlib.NewReader(b)
+	if err != nil {
+		log.Println("zlib", err)
+	}
+	_, err = io.Copy(&out, r)
+	if err != nil {
+		log.Println("zlib copy", err)
+	}
 	return out.Bytes()
 }

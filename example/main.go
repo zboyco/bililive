@@ -24,6 +24,7 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:8080", nil))
 	}()
 	liveRoom := &bililive.LiveRoom{
+		Debug:  false, // 不输出日志
 		RoomID: *roomID,
 		RoomInfo: func(m *bililive.RoomDetailModel) {
 			isLive := "直播中"
