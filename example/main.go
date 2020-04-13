@@ -25,17 +25,20 @@ func main() {
 	}()
 	liveRoom := &bililive.LiveRoom{
 		RoomID: *roomID,
-		RoomInfo: func(m *bililive.RoomDetail) {
+		RoomInfo: func(m *bililive.RoomDetailModel) {
 			isLive := "直播中"
 			if m.LiveStatus != 1 {
 				isLive = "未开播"
 			}
 			liveStartTime := time.Unix(m.LiveStartTime, 0).Format("2006-01-02 15:04:05")
 			alreadyLiveMinutes := time.Now().Sub(time.Unix(m.LiveStartTime, 0)).Minutes()
-			log.Println(fmt.Sprintf("【房间信息】%s ，标题:【%s】,分区:【%s-%s】，开播时间:【%s】，已播时间:【%f分钟】", isLive, m.Title, m.ParentAreaName, m.AreaName, liveStartTime, alreadyLiveMinutes))
+			log.Println(fmt.Sprintf("【房间信息】%s ，标题:【%s】，分区:【%s-%s】，开播时间:【%s】，已播时间:【%f分钟】", isLive, m.Title, m.ParentAreaName, m.AreaName, liveStartTime, alreadyLiveMinutes))
 		},
 		ReceivePopularValue: func(v uint32) {
 			log.Printf("【直播人气】%v", v)
+		},
+		RoomChange: func(m *bililive.RoomChangeModel) {
+			log.Println(fmt.Sprintf("【信息变更】标题:【%s】，分区:【%s-%s】", m.Title, m.ParentAreaName, m.AreaName))
 		},
 		RoomRank: func(m *bililive.RankModel) {
 			rankTime := time.Unix(m.Timestamp, 0).Format("2006-01-02 15:04:05")
@@ -68,6 +71,14 @@ func main() {
 		},
 		FansUpdate: func(m *bililive.FansUpdateModel) {
 			log.Printf("【粉丝更新】当前粉丝数 %d", m.Fans)
+		},
+		SpecialGift: func(m *bililive.SpecialGiftModel) {
+			if m.Storm.Action == "start" {
+				log.Println(fmt.Sprintf("【节奏风暴】开始，id：%s，数量：%d，内容：%s", m.Storm.ID, m.Storm.Num, m.Storm.Content))
+			}
+			if m.Storm.Action == "end" {
+				log.Println(fmt.Sprintf("【节奏风暴】结束，id：%s", m.Storm.ID))
+			}
 		},
 	}
 	liveRoom.Start()

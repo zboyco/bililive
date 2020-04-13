@@ -49,7 +49,7 @@ func (room *LiveRoom) Start() {
 
 	room.conn = <-room.createConnect()
 
-	room.chRoomDetail = make(chan *RoomDetail, 1)
+	room.chRoomDetail = make(chan *RoomDetailModel, 1)
 	room.chBuffer = make(chan *bufferInfo, 1000)
 	room.chMsg = make(chan *MsgModel, 300)
 	room.chGift = make(chan *GiftModel, 100)
@@ -61,6 +61,7 @@ func (room *LiveRoom) Start() {
 	room.chGuardBuy = make(chan *GuardBuyModel, 3)
 	room.chFansUpdate = make(chan *FansUpdateModel, 1)
 	room.chRank = make(chan *RankModel, 5)
+	room.chRoomChange = make(chan *RoomChangeModel, 1)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -91,7 +92,7 @@ func (room *LiveRoom) roomDetail(ctx context.Context) {
 			json.Unmarshal(resRoomDetail, &roomInfo)
 			room.chRoomDetail <- roomInfo.Data.RoomInfo
 		}
-		time.Sleep(60 * time.Second)
+		time.Sleep(5 * 60 * time.Second)
 	}
 
 }
@@ -201,6 +202,10 @@ func (room *LiveRoom) notice(ctx context.Context) {
 			go room.RoomRank(m)
 		case m := <-room.chRoomDetail:
 			go room.RoomInfo(m)
+		case m := <-room.chRoomChange:
+			go room.RoomChange(m)
+		case m := <-room.chSpecialGift:
+			go room.SpecialGift(m)
 		}
 	}
 }
@@ -297,6 +302,12 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				continue
 			}
 			switch result.CMD {
+			case "ROOM_CHANGE": // 房间信息变更
+				if room.RoomChange != nil {
+					m := &RoomChangeModel{}
+					json.Unmarshal(temp, m)
+					room.chRoomChange <- m
+				}
 			case "WELCOME": // 用户进入
 				if room.UserEnter != nil {
 					m := &UserEnterModel{}
@@ -349,11 +360,17 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					json.Unmarshal(temp, m)
 					room.chFansUpdate <- m
 				}
-			case "ROOM_RANK":
+			case "ROOM_RANK": // 小时榜
 				if room.RoomRank != nil {
 					m := &RankModel{}
 					json.Unmarshal(temp, m)
 					room.chRank <- m
+				}
+			case "SPECIAL_GIFT": // 特殊礼物
+				if room.SpecialGift != nil {
+					m := &SpecialGiftModel{}
+					json.Unmarshal(temp, m)
+					room.chSpecialGift <- m
 				}
 			case "ACTIVITY_BANNER_UPDATE_V2":
 				//log.Println(string(buffer.Buffer))

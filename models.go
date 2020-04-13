@@ -4,20 +4,22 @@ import "net"
 
 // LiveRoom 直播间
 type LiveRoom struct {
-	RoomID              int                    // 房间ID（兼容短ID）
-	RoomInfo            func(*RoomDetail)      // 房间信息
-	ReceiveMsg          func(*MsgModel)        // 接收消息方法
-	ReceiveGift         func(*GiftModel)       // 接收礼物方法
-	ReceivePopularValue func(uint32)           // 接收人气值方法
-	UserEnter           func(*UserEnterModel)  // 用户进入方法
-	GuardEnter          func(*GuardEnterModel) // 舰长进入方法
-	GiftComboSend       func(*ComboSendModel)  // 礼物连击方法
-	GiftComboEnd        func(*ComboEndModel)   // 礼物连击结束方法
-	GuardBuy            func(*GuardBuyModel)   // 上船
-	FansUpdate          func(*FansUpdateModel) // 粉丝数更新
-	RoomRank            func(*RankModel)       // 小时榜
+	RoomID              int                     // 房间ID（兼容短ID）
+	RoomInfo            func(*RoomDetailModel)  // 房间信息
+	ReceiveMsg          func(*MsgModel)         // 接收消息方法
+	ReceiveGift         func(*GiftModel)        // 接收礼物方法
+	ReceivePopularValue func(uint32)            // 接收人气值方法
+	UserEnter           func(*UserEnterModel)   // 用户进入方法
+	GuardEnter          func(*GuardEnterModel)  // 舰长进入方法
+	GiftComboSend       func(*ComboSendModel)   // 礼物连击方法
+	GiftComboEnd        func(*ComboEndModel)    // 礼物连击结束方法
+	GuardBuy            func(*GuardBuyModel)    // 上船
+	FansUpdate          func(*FansUpdateModel)  // 粉丝数更新
+	RoomRank            func(*RankModel)        // 小时榜
+	RoomChange          func(*RoomChangeModel)  // 房间信息变更
+	SpecialGift         func(*SpecialGiftModel) // 特殊礼物
 
-	chRoomDetail    chan *RoomDetail
+	chRoomDetail    chan *RoomDetailModel
 	chBuffer        chan *bufferInfo
 	chMsg           chan *MsgModel
 	chGift          chan *GiftModel
@@ -29,6 +31,8 @@ type LiveRoom struct {
 	chGuardBuy      chan *GuardBuyModel
 	chFansUpdate    chan *FansUpdateModel
 	chRank          chan *RankModel
+	chRoomChange    chan *RoomChangeModel
+	chSpecialGift   chan *SpecialGiftModel
 
 	server string // 地址
 	port   int    // 端口
@@ -70,16 +74,19 @@ type roomDetailResult struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    struct {
-		RoomInfo *RoomDetail `json:"room_info"`
+		RoomInfo *RoomDetailModel `json:"room_info"`
 	} `json:"data"`
 }
 
-type RoomDetail struct {
+// RoomDetailModel 房间信息详情
+type RoomDetailModel struct {
 	RoomID         int    `json:"room_id"`
 	ShortID        int    `json:"short_id"`
 	LiveStatus     int    `json:"live_status"`
 	LiveStartTime  int64  `json:"live_start_time"`
 	Title          string `json:"title"`
+	AreaID         int    `json:"area_id"`
+	ParentAreaID   int    `json:"parent_area_id"`
 	AreaName       string `json:"area_name"`
 	ParentAreaName string `json:"parent_area_name"`
 }
@@ -189,4 +196,24 @@ type RankModel struct {
 	RoomID    int    `json:"roomid"`
 	RankDesc  string `json:"rank_desc"`
 	Timestamp int64  `json:"timestamp"`
+}
+
+// RoomChangeModel 房间基础信息变更
+type RoomChangeModel struct {
+	Title          string `json:"title"`
+	AreaID         int    `json:"area_id"`
+	ParentAreaID   int    `json:"parent_area_id"`
+	AreaName       string `json:"area_name"`
+	ParentAreaName string `json:"parent_area_name"`
+}
+
+// SpecialGiftModel 特殊礼物模型
+type SpecialGiftModel struct {
+	Storm struct {
+		ID      string `json:"id"`
+		Action  string `json:"action"`
+		Content string `json:"content"`
+		Num     int    `json:"num"`
+		Time    int    `json:"time"`
+	} `json:"39"`
 }
