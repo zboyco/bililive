@@ -39,7 +39,7 @@ func main() {
 		},
 		RoomRank: func(m *bililive.RankModel) {
 			rankTime := time.Unix(m.Timestamp, 0).Format("2006-01-02 15:04:05")
-			log.Println(fmt.Sprintf("【小时排名】%s %s", rankTime, m.RankDesk))
+			log.Println(fmt.Sprintf("【小时排名】%s %s", rankTime, m.RankDesc))
 		},
 		UserEnter: func(m *bililive.UserEnterModel) {
 			log.Printf("【用户进入】欢迎 %v(%v) 进入直播间", m.UserName, m.UserID)
