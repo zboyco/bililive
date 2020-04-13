@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -15,26 +16,27 @@ import (
 )
 
 const (
-	roomInfoURL                      string = "https://api.live.bilibili.com/room/v1/Room/room_init?id="
-	cidInfoURL                       string = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id="
-	WS_OP_HEARTBEAT                  int32  = 2
-	WS_OP_HEARTBEAT_REPLY            int32  = 3
-	WS_OP_MESSAGE                    int32  = 5
-	WS_OP_USER_AUTHENTICATION        int32  = 7
-	WS_OP_CONNECT_SUCCESS            int32  = 8
-	WS_PACKAGE_HEADER_TOTAL_LENGTH   int32  = 16
-	WS_PACKAGE_OFFSET                int32  = 0
-	WS_HEADER_OFFSET                 int32  = 4
-	WS_VERSION_OFFSET                int32  = 6
-	WS_OPERATION_OFFSET              int32  = 8
-	WS_SEQUENCE_OFFSET               int32  = 12
-	WS_BODY_PROTOCOL_VERSION_NORMAL  int32  = 0
-	WS_BODY_PROTOCOL_VERSION_DEFLATE int32  = 2
-	WS_HEADER_DEFAULT_VERSION        int32  = 1
-	WS_HEADER_DEFAULT_OPERATION      int32  = 1
-	WS_HEADER_DEFAULT_SEQUENCE       int32  = 1
-	WS_AUTH_OK                       int32  = 0
-	WS_AUTH_TOKEN_ERROR              int32  = -101
+	roomInitURL                    string = "https://api.live.bilibili.com/room/v1/Room/room_init?id=%d"
+	roomConfigURL                  string = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=%d"
+	roomDetailURL                  string = "https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id=%d"
+	WS_OP_HEARTBEAT                int32  = 2
+	WS_OP_HEARTBEAT_REPLY          int32  = 3
+	WS_OP_MESSAGE                  int32  = 5
+	WS_OP_USER_AUTHENTICATION      int32  = 7
+	WS_OP_CONNECT_SUCCESS          int32  = 8
+	WS_PACKAGE_HEADER_TOTAL_LENGTH int32  = 16
+	//WS_PACKAGE_OFFSET                int32 = 0
+	//WS_HEADER_OFFSET                 int32 = 4
+	//WS_VERSION_OFFSET                int32 = 6
+	//WS_OPERATION_OFFSET              int32 = 8
+	//WS_SEQUENCE_OFFSET               int32 = 12
+	//WS_BODY_PROTOCOL_VERSION_NORMAL  int32 = 0
+	//WS_BODY_PROTOCOL_VERSION_DEFLATE int32 = 2
+	WS_HEADER_DEFAULT_VERSION int16 = 1
+	//WS_HEADER_DEFAULT_OPERATION      int32 = 1
+	WS_HEADER_DEFAULT_SEQUENCE int32 = 1
+	WS_AUTH_OK                 int32 = 0
+	WS_AUTH_TOKEN_ERROR        int32 = -101
 )
 
 // Start 开始接收
@@ -46,14 +48,18 @@ func (room *LiveRoom) Start() {
 
 	room.conn = <-room.createConnect()
 
+	room.chRoomDetail = make(chan *RoomDetail, 1)
 	room.chBuffer = make(chan *bufferInfo, 1000)
 	room.chMsg = make(chan *MsgModel, 300)
 	room.chGift = make(chan *GiftModel, 100)
 	room.chPopularValue = make(chan uint32, 1)
 	room.chUserEnter = make(chan *UserEnterModel, 10)
 	room.chGuardEnter = make(chan *GuardEnterModel, 3)
-	room.chGiftComboEnd = make(chan *ComboEndModel, 10)
+	room.chGiftComboSend = make(chan *ComboSendModel, 10)
+	room.chGiftComboEnd = make(chan *ComboEndModel, 5)
 	room.chGuardBuy = make(chan *GuardBuyModel, 3)
+	room.chFansUpdate = make(chan *FansUpdateModel, 1)
+	room.chRank = make(chan *RankModel, 5)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -62,26 +68,50 @@ func (room *LiveRoom) Start() {
 		go room.analysis(ctx)
 		go room.notice(ctx)
 	}
+
+	go room.roomDetail(ctx)
+
 	room.enterRoom()
 	go room.heartBeat(ctx)
 	room.receive()
 }
 
+func (room *LiveRoom) roomDetail(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
+			if err != nil {
+				log.Println(err)
+			}
+			roomInfo := roomDetailResult{}
+			json.Unmarshal(resRoomDetail, &roomInfo)
+			room.chRoomDetail <- roomInfo.Data.RoomInfo
+		}
+		time.Sleep(60 * time.Second)
+	}
+
+}
+
 func (room *LiveRoom) findServer() error {
-	resRoom, err := httpSend(roomInfoURL + strconv.Itoa(room.RoomID))
+	resRoom, err := httpSend(fmt.Sprintf(roomInitURL, room.RoomID))
 	if err != nil {
 		return err
 	}
+	//log.Println(string(resRoom))
 	roomInfo := roomInfoResult{}
 	json.Unmarshal(resRoom, &roomInfo)
 	if roomInfo.Code != 0 {
 		return errors.New("房间不正确")
 	}
 	room.RoomID = roomInfo.Data.RoomID
-	resDanmuConfig, err := httpSend(cidInfoURL + strconv.Itoa(room.RoomID))
+	resDanmuConfig, err := httpSend(fmt.Sprintf(roomConfigURL, room.RoomID))
 	if err != nil {
 		return err
 	}
+	//log.Println(string(resDanmuConfig))
 	danmuConfig := danmuConfigResult{}
 	json.Unmarshal(resDanmuConfig, &danmuConfig)
 	room.server = danmuConfig.Data.HostServerList[0].Host
@@ -122,7 +152,7 @@ func (room *LiveRoom) enterRoom() {
 }
 
 func connect(host string, port int) (*net.TCPConn, error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", host+":"+strconv.Itoa(port))
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +168,7 @@ func (room *LiveRoom) heartBeat(ctx context.Context) {
 		default:
 		}
 
-		room.sendData(2, []byte{})
+		room.sendData(WS_OP_HEARTBEAT, []byte{})
 		time.Sleep(30 * time.Second)
 	}
 }
@@ -158,10 +188,18 @@ func (room *LiveRoom) notice(ctx context.Context) {
 			go room.ReceiveMsg(m)
 		case m := <-room.chGift:
 			go room.ReceiveGift(m)
+		case m := <-room.chGiftComboSend:
+			go room.GiftComboSend(m)
 		case m := <-room.chGiftComboEnd:
 			go room.GiftComboEnd(m)
 		case m := <-room.chGuardBuy:
 			go room.GuardBuy(m)
+		case m := <-room.chFansUpdate:
+			go room.FansUpdate(m)
+		case m := <-room.chRank:
+			go room.RoomRank(m)
+		case m := <-room.chRoomDetail:
+			go room.RoomInfo(m)
 		}
 	}
 }
@@ -170,7 +208,7 @@ func (room *LiveRoom) notice(ctx context.Context) {
 func (room *LiveRoom) receive() {
 	for {
 		// 包头总长16个字节
-		headBuffer := make([]byte, 16)
+		headBuffer := make([]byte, WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err := io.ReadFull(room.conn, headBuffer)
 		if err != nil {
 			log.Panicln(err)
@@ -180,7 +218,7 @@ func (room *LiveRoom) receive() {
 		buf := bytes.NewReader(headBuffer)
 		binary.Read(buf, binary.BigEndian, &head)
 
-		if head.Length < 16 {
+		if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
 			log.Println("***************协议失败***************")
 			log.Println("数据包长度:", head.Length)
 			err := room.createConnect()
@@ -191,11 +229,11 @@ func (room *LiveRoom) receive() {
 			continue
 		}
 
-		if head.Length == 16 {
+		if head.Length == WS_PACKAGE_HEADER_TOTAL_LENGTH {
 			continue
 		}
 
-		payloadBuffer := make([]byte, head.Length-16)
+		payloadBuffer := make([]byte, head.Length-WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err = io.ReadFull(room.conn, payloadBuffer)
 		if err != nil {
 			log.Panicln(err)
@@ -239,19 +277,19 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				continue
 			}
 			switch result.CMD {
-			case "WELCOME":
+			case "WELCOME": // 用户进入
 				if room.UserEnter != nil {
 					m := &UserEnterModel{}
 					json.Unmarshal(temp, m)
 					room.chUserEnter <- m
 				}
-			case "WELCOME_GUARD":
+			case "WELCOME_GUARD": // 舰长进入
 				if room.GuardEnter != nil {
 					m := &GuardEnterModel{}
 					json.Unmarshal(temp, m)
 					room.chGuardEnter <- m
 				}
-			case "DANMU_MSG":
+			case "DANMU_MSG": // 弹幕
 				if room.ReceiveMsg != nil {
 					userInfo := result.Info[2].([]interface{})
 					m := &MsgModel{
@@ -261,24 +299,66 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					}
 					room.chMsg <- m
 				}
-			case "SEND_GIFT":
+			case "SEND_GIFT": // 礼物通知
 				if room.ReceiveGift != nil {
 					m := &GiftModel{}
 					json.Unmarshal(temp, m)
 					room.chGift <- m
 				}
-			case "COMBO_END":
+			case "COMBO_SEND": // 连击
+				if room.GiftComboSend != nil {
+					m := &ComboSendModel{}
+					json.Unmarshal(temp, m)
+					room.chGiftComboSend <- m
+				}
+			case "COMBO_END": // 连击结束
 				if room.GiftComboEnd != nil {
 					m := &ComboEndModel{}
 					json.Unmarshal(temp, m)
 					room.chGiftComboEnd <- m
 				}
-			case "GUARD_BUY":
+			case "GUARD_BUY": // 上船
 				if room.GuardBuy != nil {
 					m := &GuardBuyModel{}
 					json.Unmarshal(temp, m)
 					room.chGuardBuy <- m
 				}
+			case "ROOM_REAL_TIME_MESSAGE_UPDATE": // 粉丝数更新
+				if room.FansUpdate != nil {
+					m := &FansUpdateModel{}
+					json.Unmarshal(temp, m)
+					room.chFansUpdate <- m
+				}
+			case "ROOM_RANK":
+				if room.RoomRank != nil {
+					m := &RankModel{}
+					json.Unmarshal(temp, m)
+					room.chRank <- m
+				}
+			case "ACTIVITY_BANNER_UPDATE_V2":
+				//log.Println(string(buffer.Buffer))
+				break
+			case "ANCHOR_LOT_CHECKSTATUS":
+				//log.Println(string(buffer.Buffer))
+				break
+			case "GUARD_MSG": // 舰长信息
+				//log.Println(string(buffer.Buffer))
+				break
+			case "NOTICE_MSG": // 通知信息
+				//log.Println(string(buffer.Buffer))
+				break
+			case "GUARD_LOTTERY_START": // 舰长抽奖开始
+				//log.Println(string(buffer.Buffer))
+				break
+			case "USER_TOAST_MSG": // 用户通知消息
+				//log.Println(string(buffer.Buffer))
+				break
+			case "ENTRY_EFFECT": // 进入效果
+				//log.Println(string(buffer.Buffer))
+				break
+			case "WISH_BOTTLE": // 许愿瓶
+				//log.Println(string(buffer.Buffer))
+				break
 			default:
 				// log.Println(result.Data)
 				log.Println(string(buffer.Buffer))
@@ -295,11 +375,11 @@ func (room *LiveRoom) sendData(operation int32, playload []byte) {
 
 	b := bytes.NewBuffer([]byte{})
 	head := messageHeader{
-		Length:          int32(len(playload) + 16),
-		HeaderLength:    16,
-		ProtocolVersion: 1,
+		Length:          int32(len(playload)) + WS_PACKAGE_HEADER_TOTAL_LENGTH,
+		HeaderLength:    int16(WS_PACKAGE_HEADER_TOTAL_LENGTH),
+		ProtocolVersion: WS_HEADER_DEFAULT_VERSION,
 		Operation:       operation,
-		SequenceID:      1,
+		SequenceID:      WS_HEADER_DEFAULT_SEQUENCE,
 	}
 	binary.Write(b, binary.BigEndian, head)
 
