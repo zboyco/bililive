@@ -84,22 +84,23 @@ func (room *LiveRoom) Start() {
 }
 
 func (room *LiveRoom) roomDetail(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
-			if err != nil {
-				log.Println(err)
+	if room.RoomInfo != nil {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
+				if err != nil {
+					log.Println(err)
+				}
+				roomInfo := roomDetailResult{}
+				json.Unmarshal(resRoomDetail, &roomInfo)
+				room.chRoomDetail <- roomInfo.Data.RoomInfo
 			}
-			roomInfo := roomDetailResult{}
-			json.Unmarshal(resRoomDetail, &roomInfo)
-			room.chRoomDetail <- roomInfo.Data.RoomInfo
+			time.Sleep(5 * 60 * time.Second)
 		}
-		time.Sleep(5 * 60 * time.Second)
 	}
-
 }
 
 func (room *LiveRoom) findServer() error {
