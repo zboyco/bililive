@@ -13,27 +13,65 @@ import (
 
 func main() {
 	liveRoom := &bililive.LiveRoom{
-		RoomID: 101, // 房间号，兼容短号
+		Debug:  false, // 不输出日志
+		RoomID: 1,
+		RoomInfo: func(m *bililive.RoomDetailModel) {
+			isLive := "直播中"
+			if m.LiveStatus != 1 {
+				isLive = "未开播"
+			}
+			liveStartTime := time.Unix(m.LiveStartTime, 0).Format("2006-01-02 15:04:05")
+			alreadyLiveMinutes := time.Now().Sub(time.Unix(m.LiveStartTime, 0)).Minutes()
+			log.Println(fmt.Sprintf("【房间信息】%s ，标题:【%s】，分区:【%s-%s】，开播时间:【%s】，已播时间:【%f分钟】", isLive, m.Title, m.ParentAreaName, m.AreaName, liveStartTime, alreadyLiveMinutes))
+		},
 		ReceivePopularValue: func(v uint32) {
-			log.Printf("【人气】%v", v)
+			log.Printf("【直播人气】%v", v)
+		},
+		RoomChange: func(m *bililive.RoomChangeModel) {
+			log.Println(fmt.Sprintf("【信息变更】标题:【%s】，分区:【%s-%s】", m.Title, m.ParentAreaName, m.AreaName))
+		},
+		RoomRank: func(m *bililive.RankModel) {
+			rankTime := time.Unix(m.Timestamp, 0).Format("2006-01-02 15:04:05")
+			log.Println(fmt.Sprintf("【小时排名】%s %s", rankTime, m.RankDesc))
 		},
 		UserEnter: func(m *bililive.UserEnterModel) {
-			log.Printf("【用户】欢迎 %v(%v) 进入直播间", m.UserName, m.UserID)
+			log.Printf("【用户进入】欢迎 %v(%v) 进入直播间", m.UserName, m.UserID)
 		},
 		GuardEnter: func(m *bililive.GuardEnterModel) {
-			log.Printf("【舰长】欢迎 舰长 - %v(%v) 进入直播间", m.UserName, m.UserID)
+			log.Printf("【舰长进入】欢迎 舰长 - %v(%v) 进入直播间", m.UserName, m.UserID)
 		},
 		ReceiveMsg: func(msg *bililive.MsgModel) {
-			log.Printf("【弹幕】%v:  %v", msg.UserName, msg.Content)
+			log.Printf("【弹幕消息】%v:  %v", msg.UserName, msg.Content)
 		},
 		ReceiveGift: func(gift *bililive.GiftModel) {
-			log.Printf("【礼物】%v:  %v(%v) * %v  连击 %v", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Combo)
+			coin := "银瓜子"
+			if gift.CoinType == "gold" {
+				coin = "金瓜子"
+			}
+			log.Printf("【礼物通知】%s:  %s(%d) * %d [价值 %d个%s]", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price*gift.Num, coin)
+		},
+		GiftComboSend: func(m *bililive.ComboSendModel) {
+			log.Printf("【礼物连击】%v 赠送 %v(价值%v) 连击 %v 次", m.UserName, m.GiftName, m.ComboNum)
 		},
 		GiftComboEnd: func(m *bililive.ComboEndModel) {
-			log.Printf("【连击】%v 赠送 %v(价值%v) 总共连击 %v 次", m.UserName, m.GiftName, m.Price, m.ComboNum)
+			log.Printf("【连击结束】%v 赠送 %v(价值%v) 总共连击 %v 次", m.UserName, m.GiftName, m.Price, m.ComboNum)
 		},
 		GuardBuy: func(m *bililive.GuardBuyModel) {
-			log.Printf("【上船】欢迎 %v - %v(%v) 上船", m.GiftName, m.UserName, m.UserID)
+			log.Printf("【用户上船】欢迎 %v - %v(%v) 上船", m.GiftName, m.UserName, m.UserID)
+		},
+		FansUpdate: func(m *bililive.FansUpdateModel) {
+			log.Printf("【粉丝更新】当前粉丝数 %d", m.Fans)
+		},
+		SpecialGift: func(m *bililive.SpecialGiftModel) {
+			if m.Storm.Action == "start" {
+				log.Println(fmt.Sprintf("【节奏风暴】开始，id：%s，数量：%d，内容：%s", m.Storm.ID, m.Storm.Num, m.Storm.Content))
+			}
+			if m.Storm.Action == "end" {
+				log.Println(fmt.Sprintf("【节奏风暴】结束，id：%s", m.Storm.ID))
+			}
+		},
+		SuperChatMessage: func(m *bililive.SuperChatMessageModel) {
+			log.Println(fmt.Sprintf("【超级留言】%s ：%s | 价值 %d 元", m.UserInfo.UserName, m.Message, m.Price))
 		},
 	}
 	liveRoom.Start()
