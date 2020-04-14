@@ -22,18 +22,19 @@ type LiveRoom struct {
 	SuperChatMessage    func(*SuperChatMessageModel) // 超级留言
 	SysMessage          func(*SysMsgModel)           // 系统信息
 
-	chRoomDetail       chan *RoomDetailModel
-	chBuffer           chan *bufferInfo
-	chMsg              chan *MsgModel
-	chGift             chan *GiftModel
-	chPopularValue     chan uint32
-	chUserEnter        chan *UserEnterModel
-	chGuardEnter       chan *GuardEnterModel
-	chGiftComboSend    chan *ComboSendModel
-	chGiftComboEnd     chan *ComboEndModel
-	chGuardBuy         chan *GuardBuyModel
-	chFansUpdate       chan *FansUpdateModel
-	chRank             chan *RankModel
+	chSocketMessage chan []byte
+	chRoomDetail    chan *RoomDetailModel
+	chOperation     chan *operateInfo
+	chMsg           chan *MsgModel
+	chGift          chan *GiftModel
+	chPopularValue  chan uint32
+	chUserEnter     chan *UserEnterModel
+	chGuardEnter    chan *GuardEnterModel
+	chGiftComboSend chan *ComboSendModel
+	chGiftComboEnd  chan *ComboEndModel
+	chGuardBuy      chan *GuardBuyModel
+	chFansUpdate    chan *FansUpdateModel
+	chRank          chan *RankModel
 	chRoomChange       chan *RoomChangeModel
 	chSpecialGift      chan *SpecialGiftModel
 	chSuperChatMessage chan *SuperChatMessageModel
@@ -53,7 +54,7 @@ type messageHeader struct {
 	SequenceID      int32
 }
 
-type bufferInfo struct {
+type operateInfo struct {
 	Operation int32
 	Buffer    []byte
 }

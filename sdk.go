@@ -47,10 +47,11 @@ func (room *LiveRoom) Start() {
 		log.Panic(err)
 	}
 
-	room.conn = <-room.createConnect()
+	chConn := room.createConnect()
 
+	room.chSocketMessage = make(chan []byte, 10)
 	room.chRoomDetail = make(chan *RoomDetailModel, 1)
-	room.chBuffer = make(chan *bufferInfo, 1000)
+	room.chOperation = make(chan *operateInfo, 1000)
 	room.chSysMessage = make(chan *SysMsgModel, 3)
 	room.chMsg = make(chan *MsgModel, 300)
 	room.chGift = make(chan *GiftModel, 100)
@@ -75,8 +76,10 @@ func (room *LiveRoom) Start() {
 
 	go room.roomDetail(ctx)
 
+	room.conn = <-chConn
 	room.enterRoom()
 	go room.heartBeat(ctx)
+	go room.split(ctx)
 	room.receive()
 }
 
@@ -229,7 +232,6 @@ func (room *LiveRoom) receive() {
 	// 包体
 	messageBody := make([]byte, 0)
 	for {
-
 		_, err := io.ReadFull(room.conn, headerBuffer)
 		if err != nil {
 			log.Panicln(err)
@@ -239,6 +241,17 @@ func (room *LiveRoom) receive() {
 		headerBufferReader = bytes.NewReader(headerBuffer)
 		binary.Read(headerBufferReader, binary.BigEndian, &head)
 
+		if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
+			if room.Debug {
+				log.Println("***************协议失败***************")
+				log.Println("数据包长度:", head.Length)
+				log.Panic("数据包长度不正确")
+			}
+			room.conn = <-room.createConnect()
+			room.enterRoom()
+			continue
+		}
+
 		payloadBuffer := make([]byte, head.Length-WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err = io.ReadFull(room.conn, payloadBuffer)
 		if err != nil {
@@ -247,24 +260,25 @@ func (room *LiveRoom) receive() {
 
 		messageBody = append(headerBuffer, payloadBuffer...)
 
+		room.chSocketMessage <- messageBody
+	}
+}
+
+// 拆分数据
+func (room *LiveRoom) split(ctx context.Context) {
+	var (
+		messageBody        []byte
+		head               messageHeader
+		headerBufferReader *bytes.Reader
+		payloadBuffer      []byte
+	)
+	for {
+		messageBody = <-room.chSocketMessage
 		for len(messageBody) > 0 {
 			headerBufferReader = bytes.NewReader(messageBody[:WS_PACKAGE_HEADER_TOTAL_LENGTH])
 			binary.Read(headerBufferReader, binary.BigEndian, &head)
 			payloadBuffer = messageBody[WS_PACKAGE_HEADER_TOTAL_LENGTH:head.Length]
 			messageBody = messageBody[head.Length:]
-
-			if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
-				if room.Debug {
-					log.Println("***************协议失败***************")
-					log.Println("数据包长度:", head.Length)
-				}
-				err := room.createConnect()
-				if err != nil {
-					log.Panic(err)
-				}
-				room.enterRoom()
-				continue
-			}
 
 			if head.Length == WS_PACKAGE_HEADER_TOTAL_LENGTH {
 				continue
@@ -277,7 +291,7 @@ func (room *LiveRoom) receive() {
 			if room.Debug {
 				log.Println(string(payloadBuffer))
 			}
-			room.chBuffer <- &bufferInfo{Operation: head.Operation, Buffer: payloadBuffer}
+			room.chOperation <- &operateInfo{Operation: head.Operation, Buffer: payloadBuffer}
 		}
 	}
 }
@@ -291,7 +305,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 		default:
 		}
 
-		buffer := <-room.chBuffer
+		buffer := <-room.chOperation
 		switch buffer.Operation {
 		case WS_OP_HEARTBEAT_REPLY:
 			if room.ReceivePopularValue != nil {
