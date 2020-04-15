@@ -51,9 +51,9 @@ func main() {
 		GuardEnter: func(m *bililive.GuardEnterModel) {
 			log.Printf("【舰长进入】欢迎 舰长 - %v(%v) 进入直播间", m.UserName, m.UserID)
 		},
-		//ReceiveMsg: func(msg *bililive.MsgModel) {
-		//	log.Printf("【弹幕消息】%v:  %v", msg.UserName, msg.Content)
-		//},
+		ReceiveMsg: func(msg *bililive.MsgModel) {
+			log.Printf("【弹幕消息】%v:  %v", msg.UserName, msg.Content)
+		},
 		ReceiveGift: func(gift *bililive.GiftModel) {
 			coin := "银瓜子"
 			if gift.CoinType == "gold" {

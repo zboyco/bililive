@@ -23,22 +23,8 @@ type LiveRoom struct {
 	SysMessage          func(*SysMsgModel)           // 系统信息
 
 	chSocketMessage chan []byte
-	chRoomDetail    chan *RoomDetailModel
 	chOperation     chan *operateInfo
-	chMsg           chan *MsgModel
-	chGift          chan *GiftModel
-	chPopularValue  chan uint32
-	chUserEnter     chan *UserEnterModel
-	chGuardEnter    chan *GuardEnterModel
-	chGiftComboSend chan *ComboSendModel
-	chGiftComboEnd  chan *ComboEndModel
-	chGuardBuy      chan *GuardBuyModel
-	chFansUpdate    chan *FansUpdateModel
-	chRank          chan *RankModel
-	chRoomChange       chan *RoomChangeModel
-	chSpecialGift      chan *SpecialGiftModel
-	chSuperChatMessage chan *SuperChatMessageModel
-	chSysMessage       chan *SysMsgModel
+	chMessages      chan interface{}
 
 	server string // 地址
 	port   int    // 端口
