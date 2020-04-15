@@ -411,7 +411,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					json.Unmarshal(temp, m)
 					room.chSpecialGift <- m
 				}
-			case "SUPER_CHAT_MESSAGE": // 超级留言
+			case "SUPER_CHAT_MESSAGE": // 醒目留言
 				if room.SuperChatMessage != nil {
 					m := &SuperChatMessageModel{}
 					json.Unmarshal(temp, m)
@@ -454,7 +454,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					log.Println(string(buffer.Buffer))
 				}
 			default:
-				if !room.Debug {
+				if room.Debug {
 					log.Println(string(buffer.Buffer))
 				}
 			}

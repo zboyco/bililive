@@ -51,15 +51,16 @@ func main() {
 		GuardEnter: func(m *bililive.GuardEnterModel) {
 			log.Printf("【舰长进入】欢迎 舰长 - %v(%v) 进入直播间", m.UserName, m.UserID)
 		},
-		ReceiveMsg: func(msg *bililive.MsgModel) {
-			log.Printf("【弹幕消息】%v:  %v", msg.UserName, msg.Content)
-		},
+		//ReceiveMsg: func(msg *bililive.MsgModel) {
+		//	log.Printf("【弹幕消息】%v:  %v", msg.UserName, msg.Content)
+		//},
 		ReceiveGift: func(gift *bililive.GiftModel) {
 			coin := "银瓜子"
 			if gift.CoinType == "gold" {
 				coin = "金瓜子"
+				log.Printf("【礼物通知】%s:  %s(%d) * %d [价值 %d个%s]", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price*gift.Num, coin)
 			}
-			log.Printf("【礼物通知】%s:  %s(%d) * %d [价值 %d个%s]", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price*gift.Num, coin)
+			//log.Printf("【礼物通知】%s:  %s(%d) * %d [价值 %d个%s]", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price*gift.Num, coin)
 		},
 		GiftComboSend: func(m *bililive.ComboSendModel) {
 			log.Printf("【礼物连击】%v 赠送 %v(价值%v) 连击 %v 次", m.UserName, m.GiftName, m.ComboNum)
@@ -82,7 +83,7 @@ func main() {
 			}
 		},
 		SuperChatMessage: func(m *bililive.SuperChatMessageModel) {
-			log.Println(fmt.Sprintf("【超级留言】%s ：%s | 价值 %d 元", m.UserInfo.UserName, m.Message, m.Price))
+			log.Println(fmt.Sprintf("【醒目留言】%s ：%s | 价值 %d 元", m.UserInfo.UserName, m.Message, m.Price))
 		},
 	}
 	liveRoom.Start()
