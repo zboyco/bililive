@@ -5,6 +5,7 @@ import "net"
 // LiveRoom 直播间
 type LiveRoom struct {
 	Debug               bool                         // 是否显示日志
+	AnalysisRoutineNum  int                          // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
 	RoomID              int                          // 房间ID（兼容短ID）
 	RoomInfo            func(*RoomDetailModel)       // 房间信息
 	ReceiveMsg          func(*MsgModel)              // 接收消息方法
@@ -24,7 +25,6 @@ type LiveRoom struct {
 
 	chSocketMessage chan []byte
 	chOperation     chan *operateInfo
-	chMessages      chan interface{}
 
 	server string // 地址
 	port   int    // 端口

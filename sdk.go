@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"runtime"
 	"strconv"
 	"time"
 )
@@ -42,6 +41,10 @@ const (
 
 // Start 开始接收
 func (room *LiveRoom) Start() {
+	if room.AnalysisRoutineNum == 0 {
+		room.AnalysisRoutineNum = 1
+	}
+
 	err := room.findServer()
 	if err != nil {
 		log.Panic(err)
@@ -51,14 +54,12 @@ func (room *LiveRoom) Start() {
 
 	room.chSocketMessage = make(chan []byte, 10)
 	room.chOperation = make(chan *operateInfo, 100)
-	room.chMessages = make(chan interface{}, 1000)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	for i, max := 0, runtime.NumCPU(); i < max; i++ {
+	for i := 0; i < room.AnalysisRoutineNum; i++ {
 		go room.analysis(ctx)
-		go room.notice(ctx)
 	}
 
 	go room.roomDetail(ctx)
@@ -83,7 +84,7 @@ func (room *LiveRoom) roomDetail(ctx context.Context) {
 				}
 				roomInfo := roomDetailResult{}
 				json.Unmarshal(resRoomDetail, &roomInfo)
-				room.chMessages <- roomInfo.Data.RoomInfo
+				room.RoomInfo(roomInfo.Data.RoomInfo)
 			}
 			time.Sleep(5 * 60 * time.Second)
 		}
@@ -169,50 +170,6 @@ func (room *LiveRoom) heartBeat(ctx context.Context) {
 
 		room.sendData(WS_OP_HEARTBEAT, []byte{})
 		time.Sleep(30 * time.Second)
-	}
-}
-
-func (room *LiveRoom) notice(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		m := <-room.chMessages
-		switch m.(type) {
-		case *SysMsgModel:
-			go room.SysMessage(m.(*SysMsgModel))
-		case uint32:
-			go room.ReceivePopularValue(m.(uint32))
-		case *UserEnterModel:
-			go room.UserEnter(m.(*UserEnterModel))
-		case *GuardEnterModel:
-			go room.GuardEnter(m.(*GuardEnterModel))
-		case *MsgModel:
-			go room.ReceiveMsg(m.(*MsgModel))
-		case *GiftModel:
-			go room.ReceiveGift(m.(*GiftModel))
-		case *ComboSendModel:
-			go room.GiftComboSend(m.(*ComboSendModel))
-		case *ComboEndModel:
-			go room.GiftComboEnd(m.(*ComboEndModel))
-		case *GuardBuyModel:
-			go room.GuardBuy(m.(*GuardBuyModel))
-		case *FansUpdateModel:
-			go room.FansUpdate(m.(*FansUpdateModel))
-		case *RankModel:
-			go room.RoomRank(m.(*RankModel))
-		case *RoomDetailModel:
-			go room.RoomInfo(m.(*RoomDetailModel))
-		case *RoomChangeModel:
-			go room.RoomChange(m.(*RoomChangeModel))
-		case *SpecialGiftModel:
-			go room.SpecialGift(m.(*SpecialGiftModel))
-		case *SuperChatMessageModel:
-			go room.SuperChatMessage(m.(*SuperChatMessageModel))
-		}
-
 	}
 }
 
@@ -303,7 +260,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 		case WS_OP_HEARTBEAT_REPLY:
 			if room.ReceivePopularValue != nil {
 				m := binary.BigEndian.Uint32(buffer.Buffer)
-				room.chMessages <- m
+				room.ReceivePopularValue(m)
 			}
 		case WS_OP_CONNECT_SUCCESS:
 			if room.Debug {
@@ -331,25 +288,25 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				if room.SysMessage != nil {
 					m := &SysMsgModel{}
 					json.Unmarshal(buffer.Buffer, m)
-					room.chMessages <- m
+					room.SysMessage(m)
 				}
 			case "ROOM_CHANGE": // 房间信息变更
 				if room.RoomChange != nil {
 					m := &RoomChangeModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.RoomChange(m)
 				}
 			case "WELCOME": // 用户进入
 				if room.UserEnter != nil {
 					m := &UserEnterModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.UserEnter(m)
 				}
 			case "WELCOME_GUARD": // 舰长进入
 				if room.GuardEnter != nil {
 					m := &GuardEnterModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.GuardEnter(m)
 				}
 			case "DANMU_MSG": // 弹幕
 				if room.ReceiveMsg != nil {
@@ -359,55 +316,55 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 						UserName: userInfo[1].(string),
 						UserID:   strconv.FormatFloat(userInfo[0].(float64), 'f', -1, 64),
 					}
-					room.chMessages <- m
+					room.ReceiveMsg(m)
 				}
 			case "SEND_GIFT": // 礼物通知
 				if room.ReceiveGift != nil {
 					m := &GiftModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.ReceiveGift(m)
 				}
 			case "COMBO_SEND": // 连击
 				if room.GiftComboSend != nil {
 					m := &ComboSendModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.GiftComboSend(m)
 				}
 			case "COMBO_END": // 连击结束
 				if room.GiftComboEnd != nil {
 					m := &ComboEndModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.GiftComboEnd(m)
 				}
 			case "GUARD_BUY": // 上船
 				if room.GuardBuy != nil {
 					m := &GuardBuyModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.GuardBuy(m)
 				}
 			case "ROOM_REAL_TIME_MESSAGE_UPDATE": // 粉丝数更新
 				if room.FansUpdate != nil {
 					m := &FansUpdateModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.FansUpdate(m)
 				}
 			case "ROOM_RANK": // 小时榜
 				if room.RoomRank != nil {
 					m := &RankModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.RoomRank(m)
 				}
 			case "SPECIAL_GIFT": // 特殊礼物
 				if room.SpecialGift != nil {
 					m := &SpecialGiftModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.SpecialGift(m)
 				}
 			case "SUPER_CHAT_MESSAGE": // 醒目留言
 				if room.SuperChatMessage != nil {
 					m := &SuperChatMessageModel{}
 					json.Unmarshal(temp, m)
-					room.chMessages <- m
+					room.SuperChatMessage(m)
 				}
 			case "SUPER_CHAT_MESSAGE_JPN":
 				if room.Debug {

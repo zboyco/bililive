@@ -24,8 +24,9 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:8080", nil))
 	}()
 	liveRoom := &bililive.LiveRoom{
-		Debug:  false, // 不输出日志
-		RoomID: *roomID,
+		Debug:              false, // 不输出日志
+		AnalysisRoutineNum: 1,     // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
+		RoomID:             *roomID,
 		RoomInfo: func(m *bililive.RoomDetailModel) {
 			isLive := "直播中"
 			if m.LiveStatus != 1 {
