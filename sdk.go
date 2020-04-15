@@ -84,7 +84,7 @@ func (room *LiveRoom) roomDetail(ctx context.Context) {
 				}
 				roomInfo := roomDetailResult{}
 				json.Unmarshal(resRoomDetail, &roomInfo)
-				room.RoomInfo(roomInfo.Data.RoomInfo)
+				room.RoomInfo(roomInfo.Data)
 			}
 			time.Sleep(5 * 60 * time.Second)
 		}

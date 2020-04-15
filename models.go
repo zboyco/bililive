@@ -65,24 +65,29 @@ type roomInfoResult struct {
 }
 
 type roomDetailResult struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    struct {
-		RoomInfo *RoomDetailModel `json:"room_info"`
-	} `json:"data"`
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    *RoomDetailModel `json:"data"`
 }
 
 // RoomDetailModel 房间信息详情
 type RoomDetailModel struct {
-	RoomID         int    `json:"room_id"`
-	ShortID        int    `json:"short_id"`
-	LiveStatus     int    `json:"live_status"`
-	LiveStartTime  int64  `json:"live_start_time"`
-	Title          string `json:"title"`
-	AreaID         int    `json:"area_id"`
-	ParentAreaID   int    `json:"parent_area_id"`
-	AreaName       string `json:"area_name"`
-	ParentAreaName string `json:"parent_area_name"`
+	RoomInfo struct {
+		RoomID         int    `json:"room_id"`
+		ShortID        int    `json:"short_id"`
+		LiveStatus     int    `json:"live_status"`
+		LiveStartTime  int64  `json:"live_start_time"`
+		Title          string `json:"title"`
+		AreaID         int    `json:"area_id"`
+		ParentAreaID   int    `json:"parent_area_id"`
+		AreaName       string `json:"area_name"`
+		ParentAreaName string `json:"parent_area_name"`
+	} `json:"room_info"`
+	AnchorInfo struct {
+		RelationInfo struct {
+			Attention int `json:"attention"`
+		} `json:"relation_info"`
+	} `json:"anchor_info"`
 }
 
 // 房间数据

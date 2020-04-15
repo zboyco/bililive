@@ -29,12 +29,12 @@ func main() {
 		RoomID:             *roomID,
 		RoomInfo: func(m *bililive.RoomDetailModel) {
 			isLive := "直播中"
-			if m.LiveStatus != 1 {
+			if m.RoomInfo.LiveStatus != 1 {
 				isLive = "未开播"
 			}
-			liveStartTime := time.Unix(m.LiveStartTime, 0).Format("2006-01-02 15:04:05")
-			alreadyLiveMinutes := time.Now().Sub(time.Unix(m.LiveStartTime, 0)).Minutes()
-			log.Printf("【房间信息】%s ，标题:【%s】，分区:【%s-%s】，开播时间:【%s】，已播时间:【%f分钟】", isLive, m.Title, m.ParentAreaName, m.AreaName, liveStartTime, alreadyLiveMinutes)
+			liveStartTime := time.Unix(m.RoomInfo.LiveStartTime, 0).Format("2006-01-02 15:04:05")
+			alreadyLiveMinutes := time.Now().Sub(time.Unix(m.RoomInfo.LiveStartTime, 0)).Minutes()
+			log.Printf("【房间信息】%s ，标题:【%s】，分区:【%s-%s】，开播时间:【%s】，已播时间:【%f分钟】", isLive, m.RoomInfo.Title, m.RoomInfo.ParentAreaName, m.RoomInfo.AreaName, liveStartTime, alreadyLiveMinutes)
 		},
 		ReceivePopularValue: func(v uint32) {
 			log.Printf("【直播人气】%v", v)
