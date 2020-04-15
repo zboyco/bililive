@@ -312,9 +312,10 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				if room.ReceiveMsg != nil {
 					userInfo := result.Info[2].([]interface{})
 					m := &MsgModel{
-						Content:  result.Info[1].(string),
-						UserName: userInfo[1].(string),
-						UserID:   strconv.FormatFloat(userInfo[0].(float64), 'f', -1, 64),
+						Content:   result.Info[1].(string),
+						UserName:  userInfo[1].(string),
+						UserID:    strconv.FormatFloat(userInfo[0].(float64), 'f', -1, 64),
+						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
 					}
 					room.ReceiveMsg(m)
 				}
@@ -337,6 +338,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.GiftComboEnd(m)
 				}
 			case "GUARD_BUY": // 上船
+				//log.Println(string(buffer.Buffer))
 				if room.GuardBuy != nil {
 					m := &GuardBuyModel{}
 					json.Unmarshal(temp, m)
@@ -355,12 +357,14 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.RoomRank(m)
 				}
 			case "SPECIAL_GIFT": // 特殊礼物
+				//log.Println(string(buffer.Buffer))
 				if room.SpecialGift != nil {
 					m := &SpecialGiftModel{}
 					json.Unmarshal(temp, m)
 					room.SpecialGift(m)
 				}
 			case "SUPER_CHAT_MESSAGE": // 醒目留言
+				//log.Println(string(buffer.Buffer))
 				if room.SuperChatMessage != nil {
 					m := &SuperChatMessageModel{}
 					json.Unmarshal(temp, m)

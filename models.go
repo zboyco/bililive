@@ -1,6 +1,8 @@
 package bililive
 
-import "net"
+import (
+	"net"
+)
 
 // LiveRoom 直播间
 type LiveRoom struct {
@@ -137,21 +139,23 @@ type GuardEnterModel struct {
 
 // GiftModel 礼物模型
 type GiftModel struct {
-	GiftName string `json:"giftName"`       // 礼物名称
-	Num      int    `json:"num"`            // 数量
-	UserName string `json:"uname"`          // 用户名称
-	GiftID   int    `json:"giftId"`         // 礼物ID
-	Price    int    `json:"price"`          // 价格
-	CoinType string `json:"coin_type"`      // 硬币类型
-	FaceURL  string `json:"face"`           // 头像url
-	Combo    int    `json:"super_gift_num"` // 连击
+	GiftName  string `json:"giftName"`       // 礼物名称
+	Num       int    `json:"num"`            // 数量
+	UserName  string `json:"uname"`          // 用户名称
+	GiftID    int    `json:"giftId"`         // 礼物ID
+	Price     int    `json:"price"`          // 价格
+	CoinType  string `json:"coin_type"`      // 硬币类型
+	FaceURL   string `json:"face"`           // 头像url
+	Combo     int    `json:"super_gift_num"` // 连击
+	Timestamp int64  `json:"timestamp"`      // 时间
 }
 
 // MsgModel 消息
 type MsgModel struct {
-	UserID   string // 用户ID
-	UserName string // 用户昵称
-	Content  string // 内容
+	UserID    string // 用户ID
+	UserName  string // 用户昵称
+	Content   string // 内容
+	Timestamp int64  // 时间
 }
 
 // ComboSendModel 连击模型
@@ -170,6 +174,8 @@ type ComboEndModel struct {
 	GiftID     int    `json:"gift_id"`     // 礼物ID
 	Price      int    `json:"price"`       // 价格
 	GuardLevel int    `json:"guard_level"` // 舰长等级
+	StartTime  int64  `json:"start_time"`  // 开始时间
+	EndTime    int64  `json:"end_time"`    // 结束时间
 }
 
 // GuardBuyModel 上船模型
