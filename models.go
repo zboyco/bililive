@@ -52,7 +52,7 @@ type operateInfo struct {
 // 进入房间信息
 type enterInfo struct {
 	RoomID    int    `json:"roomid"`
-	UserID    int64 `json:"uid"`
+	UserID    int64  `json:"uid"`
 	ProtoVer  int    `json:"protover"`
 	Platform  string `json:"platform"`
 	ClientVer string `json:"clientver"`
@@ -130,7 +130,7 @@ type SysMsgModel struct {
 
 // UserEnterModel 用户进入模型
 type UserEnterModel struct {
-	UserID   int64    `json:"uid"`
+	UserID   int64  `json:"uid"`
 	UserName string `json:"uname"`
 	IsAdmin  bool   `json:"is_admin"`
 	VIP      int    `json:"vip"`
@@ -139,7 +139,7 @@ type UserEnterModel struct {
 
 // GuardEnterModel 舰长进入模型
 type GuardEnterModel struct {
-	UserID     int64    `json:"uid"`
+	UserID     int64  `json:"uid"`
 	UserName   string `json:"username"`
 	GuardLevel int    `json:"guard_level"`
 }
@@ -149,6 +149,7 @@ type GiftModel struct {
 	GiftName  string `json:"giftName"`       // 礼物名称
 	Num       int    `json:"num"`            // 数量
 	UserName  string `json:"uname"`          // 用户名称
+	UserID    int64  `json:"uid"`            // 用户ID
 	GiftID    int    `json:"giftId"`         // 礼物ID
 	Price     int    `json:"price"`          // 价格
 	CoinType  string `json:"coin_type"`      // 硬币类型
@@ -159,7 +160,7 @@ type GiftModel struct {
 
 // MsgModel 消息
 type MsgModel struct {
-	UserID    int64    // 用户ID
+	UserID    int64  // 用户ID
 	UserName  string // 用户昵称
 	Content   string // 内容
 	Timestamp int64  // 时间
@@ -189,7 +190,7 @@ type ComboEndModel struct {
 type GuardBuyModel struct {
 	GiftName   string `json:"gift_name"`   // 礼物名称
 	Num        int    `json:"num"`         // 数量
-	UserID     int64    `json:"uid"`         // 用户ID
+	UserID     int64  `json:"uid"`         // 用户ID
 	UserName   string `json:"username"`    // 用户名称
 	GiftID     int    `json:"gift_id"`     // 礼物ID
 	Price      int    `json:"price"`       // 价格

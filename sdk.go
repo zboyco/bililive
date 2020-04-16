@@ -333,6 +333,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.ReceiveMsg(m)
 				}
 			case "SEND_GIFT": // 礼物通知
+				log.Println(string(buffer.Buffer))
 				if room.ReceiveGift != nil {
 					m := &GiftModel{}
 					json.Unmarshal(temp, m)
