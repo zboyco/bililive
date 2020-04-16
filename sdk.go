@@ -40,7 +40,7 @@ const (
 )
 
 // Start 开始接收
-func (room *LiveRoom) Start() {
+func (room *LiveRoom) Start(ctx context.Context) {
 	if room.AnalysisRoutineNum == 0 {
 		room.AnalysisRoutineNum = 1
 	}
@@ -55,18 +55,18 @@ func (room *LiveRoom) Start() {
 	room.chSocketMessage = make(chan []byte, 10)
 	room.chOperation = make(chan *operateInfo, 100)
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	nextCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	for i := 0; i < room.AnalysisRoutineNum; i++ {
-		go room.analysis(ctx)
+		go room.analysis(nextCtx)
 	}
 
 	room.conn = <-chConn
 	room.enterRoom()
-	go room.heartBeat(ctx)
-	go room.split(ctx)
-	room.receive()
+	go room.heartBeat(nextCtx)
+	go room.split(nextCtx)
+	room.receive(ctx)
 }
 
 func (room *LiveRoom) noticeRoomDetail() {
@@ -167,7 +167,7 @@ func (room *LiveRoom) heartBeat(ctx context.Context) {
 }
 
 // 接收消息
-func (room *LiveRoom) receive() {
+func (room *LiveRoom) receive(ctx context.Context) {
 	// 包头总长16个字节
 	headerBuffer := make([]byte, WS_PACKAGE_HEADER_TOTAL_LENGTH)
 	// headerBufferReader
@@ -175,6 +175,12 @@ func (room *LiveRoom) receive() {
 	// 包体
 	messageBody := make([]byte, 0)
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		_, err := io.ReadFull(room.conn, headerBuffer)
 		if err != nil {
 			log.Panicln(err)

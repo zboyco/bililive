@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
 	"log"
 	"time"
 
@@ -58,9 +58,9 @@ func main() {
 		GuardEnter: func(m *bililive.GuardEnterModel) {
 			log.Printf("【舰长进入】欢迎 舰长 - %v(%v) 进入直播间", m.UserName, m.UserID)
 		},
-		//ReceiveMsg: func(msg *bililive.MsgModel) {
-		//	log.Printf("【弹幕消息】%v(%v):  %v", msg.UserName, time.Unix(msg.Timestamp, 0), msg.Content)
-		//},
+		ReceiveMsg: func(msg *bililive.MsgModel) {
+			log.Printf("【弹幕消息】%v(%v):  %v", msg.UserName, time.Unix(msg.Timestamp, 0), msg.Content)
+		},
 		ReceiveGift: func(gift *bililive.GiftModel) {
 			coin := "银瓜子"
 			if gift.CoinType == "gold" {
@@ -83,15 +83,15 @@ func main() {
 		},
 		SpecialGift: func(m *bililive.SpecialGiftModel) {
 			if m.Storm.Action == "start" {
-				log.Println(fmt.Sprintf("【节奏风暴】开始，id：%s，数量：%d，内容：%s", m.Storm.ID, m.Storm.Num, m.Storm.Content))
+				log.Printf("【节奏风暴】开始，id：%s，数量：%d，内容：%s", m.Storm.ID, m.Storm.Num, m.Storm.Content)
 			}
 			if m.Storm.Action == "end" {
-				log.Println(fmt.Sprintf("【节奏风暴】结束，id：%s", m.Storm.ID))
+				log.Printf("【节奏风暴】结束，id：%s", m.Storm.ID)
 			}
 		},
 		SuperChatMessage: func(m *bililive.SuperChatMessageModel) {
 			log.Printf("【醒目留言】%s ：%s | 价值 %d 元", m.UserInfo.UserName, m.Message, m.Price)
 		},
 	}
-	liveRoom.Start()
+	liveRoom.Start(context.Background())
 }
