@@ -69,17 +69,19 @@ func (room *LiveRoom) Start() {
 	room.receive()
 }
 
-func (room *LiveRoom) getRoomDetail() (*RoomDetailModel, error) {
-	resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
-	if err != nil {
-		return nil, err
+func (room *LiveRoom) noticeRoomDetail() {
+	if room.RoomDetail != nil {
+		resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
+		if err != nil && room.Debug {
+			log.Println(err)
+		}
+		roomInfo := roomDetailResult{}
+		err = json.Unmarshal(resRoomDetail, &roomInfo)
+		if err != nil && room.Debug {
+			log.Println(err)
+		}
+		room.RoomDetail(roomInfo.Data)
 	}
-	roomInfo := roomDetailResult{}
-	err = json.Unmarshal(resRoomDetail, &roomInfo)
-	if err != nil {
-		return nil, err
-	}
-	return roomInfo.Data, nil
 }
 
 func (room *LiveRoom) findServer() error {
@@ -276,13 +278,15 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			}
 			switch result.CMD {
 			case "LIVE": // 直播开始
+				go room.noticeRoomDetail()
 				if room.Live != nil {
-					m, err := room.getRoomDetail()
-					if err != nil {
-						log.Println(err)
-						continue
-					}
-					room.Live(m)
+					room.Live()
+				}
+			case "END": // 直播结束
+				log.Println(string(buffer.Buffer))
+				go room.noticeRoomDetail()
+				if room.End != nil {
+					room.End()
 				}
 			case "SYS_MSG": // 系统消息
 				if room.SysMessage != nil {
@@ -378,8 +382,6 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			case "SYS_GIFT": // 系统礼物
 				fallthrough
 			case "PREPARING": // 准备
-				fallthrough
-			case "END": // 直播结束
 				fallthrough
 			case "CLOSE": // 关闭
 				fallthrough

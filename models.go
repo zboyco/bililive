@@ -9,8 +9,9 @@ type LiveRoom struct {
 	Debug               bool                         // 是否显示日志
 	AnalysisRoutineNum  int                          // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
 	RoomID              int                          // 房间ID（兼容短ID）
-	Live                func(*RoomDetailModel)       // 直播开始通知
-	End                 func(*RoomDetailModel)       // 直播结束通知
+	RoomDetail          func(model *RoomDetailModel) // 房间详情，在开始直播和结束直播时通知
+	Live                func()                       // 直播开始通知
+	End                 func()                       // 直播结束通知
 	ReceiveMsg          func(*MsgModel)              // 接收消息方法
 	ReceiveGift         func(*GiftModel)             // 接收礼物方法
 	ReceivePopularValue func(uint32)                 // 接收人气值方法

@@ -27,7 +27,13 @@ func main() {
 		Debug:              false, // 不输出日志
 		AnalysisRoutineNum: 1,     // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
 		RoomID:             *roomID,
-		Live: func(m *bililive.RoomDetailModel) {
+		Live: func() {
+			log.Println("【直播开始】")
+		},
+		End: func() {
+			log.Println("【直播结束】")
+		},
+		RoomDetail: func(m *bililive.RoomDetailModel) {
 			isLive := "直播中"
 			if m.RoomInfo.LiveStatus != 1 {
 				isLive = "未开播"
