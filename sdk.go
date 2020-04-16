@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -328,7 +327,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					m := &MsgModel{
 						Content:   result.Info[1].(string),
 						UserName:  userInfo[1].(string),
-						UserID:    strconv.FormatFloat(userInfo[0].(float64), 'f', -1, 64),
+						UserID:    int64(userInfo[0].(float64)),
 						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
 					}
 					room.ReceiveMsg(m)
