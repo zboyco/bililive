@@ -68,19 +68,23 @@ func (room *LiveRoom) Start(ctx context.Context) {
 	room.receive(ctx)
 }
 
-func (room *LiveRoom) noticeRoomDetail() {
-	if room.RoomDetail != nil {
-		resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
-		if err != nil && room.Debug {
+func (room *LiveRoom) noticeRoomDetail() *RoomDetailModel {
+	resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
+	if err != nil {
+		if room.Debug {
 			log.Println(err)
 		}
-		roomInfo := roomDetailResult{}
-		err = json.Unmarshal(resRoomDetail, &roomInfo)
-		if err != nil && room.Debug {
-			log.Println(err)
-		}
-		room.RoomDetail(roomInfo.Data)
+		return nil
 	}
+	roomInfo := roomDetailResult{}
+	err = json.Unmarshal(resRoomDetail, &roomInfo)
+	if err != nil {
+		if room.Debug {
+			log.Println(err)
+		}
+		return nil
+	}
+	return roomInfo.Data
 }
 
 func (room *LiveRoom) findServer() error {
@@ -223,6 +227,12 @@ func (room *LiveRoom) split(ctx context.Context) {
 	for {
 		messageBody = <-room.chSocketMessage
 		for len(messageBody) > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			headerBufferReader = bytes.NewReader(messageBody[:WS_PACKAGE_HEADER_TOTAL_LENGTH])
 			binary.Read(headerBufferReader, binary.BigEndian, &head)
 			payloadBuffer = messageBody[WS_PACKAGE_HEADER_TOTAL_LENGTH:head.Length]
@@ -283,9 +293,8 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			}
 			switch result.CMD {
 			case "LIVE": // 直播开始
-				go room.noticeRoomDetail()
 				if room.Live != nil {
-					room.Live()
+					room.Live(room.noticeRoomDetail())
 				}
 			case "CLOSE": // 关闭
 				fallthrough
@@ -293,9 +302,8 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				fallthrough
 			case "END": // 结束
 				log.Println(string(buffer.Buffer))
-				go room.noticeRoomDetail()
 				if room.End != nil {
-					room.End()
+					room.End(room.noticeRoomDetail())
 				}
 			case "SYS_MSG": // 系统消息
 				if room.SysMessage != nil {
@@ -333,7 +341,6 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.ReceiveMsg(m)
 				}
 			case "SEND_GIFT": // 礼物通知
-				log.Println(string(buffer.Buffer))
 				if room.ReceiveGift != nil {
 					m := &GiftModel{}
 					json.Unmarshal(temp, m)
