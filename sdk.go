@@ -62,8 +62,6 @@ func (room *LiveRoom) Start() {
 		go room.analysis(ctx)
 	}
 
-	go room.roomDetail(ctx)
-
 	room.conn = <-chConn
 	room.enterRoom()
 	go room.heartBeat(ctx)
@@ -71,24 +69,17 @@ func (room *LiveRoom) Start() {
 	room.receive()
 }
 
-func (room *LiveRoom) roomDetail(ctx context.Context) {
-	if room.RoomInfo != nil {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
-				if err != nil {
-					log.Println(err)
-				}
-				roomInfo := roomDetailResult{}
-				json.Unmarshal(resRoomDetail, &roomInfo)
-				room.RoomInfo(roomInfo.Data)
-			}
-			time.Sleep(5 * 60 * time.Second)
-		}
+func (room *LiveRoom) getRoomDetail() (*RoomDetailModel, error) {
+	resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
+	if err != nil {
+		return nil, err
 	}
+	roomInfo := roomDetailResult{}
+	err = json.Unmarshal(resRoomDetail, &roomInfo)
+	if err != nil {
+		return nil, err
+	}
+	return roomInfo.Data, nil
 }
 
 func (room *LiveRoom) findServer() error {
@@ -284,13 +275,23 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				continue
 			}
 			switch result.CMD {
+			case "LIVE": // 直播开始
+				if room.Live != nil {
+					m, err := room.getRoomDetail()
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+					room.Live(m)
+				}
 			case "SYS_MSG": // 系统消息
 				if room.SysMessage != nil {
 					m := &SysMsgModel{}
 					json.Unmarshal(buffer.Buffer, m)
 					room.SysMessage(m)
 				}
-			case "ROOM_CHANGE": // 房间信息变更
+			case "ROOM_CHANGE ": // 房间信息变更
+				log.Println(string(buffer.Buffer))
 				if room.RoomChange != nil {
 					m := &RoomChangeModel{}
 					json.Unmarshal(temp, m)
@@ -374,46 +375,40 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				if room.Debug {
 					log.Println(string(buffer.Buffer))
 				}
-			case "ACTIVITY_BANNER_UPDATE_V2":
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
-			case "ANCHOR_LOT_CHECKSTATUS":
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+			case "SYS_GIFT": // 系统礼物
+				fallthrough
+			case "PREPARING": // 准备
+				fallthrough
+			case "END": // 直播结束
+				fallthrough
+			case "CLOSE": // 关闭
+				fallthrough
+			case "BLOCK": // 未知
+				fallthrough
+			case "ROUND": // 未知
+				fallthrough
+			case "REFRESH": // 刷新
+				fallthrough
+			case "ACTIVITY_BANNER_UPDATE_V2": //
+				fallthrough
+			case "ANCHOR_LOT_CHECKSTATUS": //
+				fallthrough
 			case "GUARD_MSG": // 舰长信息
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				fallthrough
 			case "NOTICE_MSG": // 通知信息
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				fallthrough
 			case "GUARD_LOTTERY_START": // 舰长抽奖开始
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				fallthrough
 			case "USER_TOAST_MSG": // 用户通知消息
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				fallthrough
 			case "ENTRY_EFFECT": // 进入效果
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				fallthrough
 			case "WISH_BOTTLE": // 许愿瓶
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				fallthrough
 			case "ROOM_BLOCK_MSG":
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				fallthrough
 			case "WEEK_STAR_CLOCK":
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				fallthrough
 			default:
 				if room.Debug {
 					log.Println(string(buffer.Buffer))

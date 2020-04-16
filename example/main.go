@@ -27,7 +27,7 @@ func main() {
 		Debug:              false, // 不输出日志
 		AnalysisRoutineNum: 1,     // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
 		RoomID:             *roomID,
-		RoomInfo: func(m *bililive.RoomDetailModel) {
+		Live: func(m *bililive.RoomDetailModel) {
 			isLive := "直播中"
 			if m.RoomInfo.LiveStatus != 1 {
 				isLive = "未开播"
@@ -52,9 +52,9 @@ func main() {
 		GuardEnter: func(m *bililive.GuardEnterModel) {
 			log.Printf("【舰长进入】欢迎 舰长 - %v(%v) 进入直播间", m.UserName, m.UserID)
 		},
-		ReceiveMsg: func(msg *bililive.MsgModel) {
-			log.Printf("【弹幕消息】%v(%v):  %v", msg.UserName, time.Unix(msg.Timestamp, 0), msg.Content)
-		},
+		//ReceiveMsg: func(msg *bililive.MsgModel) {
+		//	log.Printf("【弹幕消息】%v(%v):  %v", msg.UserName, time.Unix(msg.Timestamp, 0), msg.Content)
+		//},
 		ReceiveGift: func(gift *bililive.GiftModel) {
 			coin := "银瓜子"
 			if gift.CoinType == "gold" {
