@@ -282,7 +282,11 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				if room.Live != nil {
 					room.Live()
 				}
-			case "END": // 直播结束
+			case "CLOSE": // 关闭
+				fallthrough
+			case "PREPARING": // 准备
+				fallthrough
+			case "END": // 结束
 				log.Println(string(buffer.Buffer))
 				go room.noticeRoomDetail()
 				if room.End != nil {
@@ -295,7 +299,6 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.SysMessage(m)
 				}
 			case "ROOM_CHANGE ": // 房间信息变更
-				log.Println(string(buffer.Buffer))
 				if room.RoomChange != nil {
 					m := &RoomChangeModel{}
 					json.Unmarshal(temp, m)
@@ -362,7 +365,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.RoomRank(m)
 				}
 			case "SPECIAL_GIFT": // 特殊礼物
-				//log.Println(string(buffer.Buffer))
+				log.Println(string(buffer.Buffer))
 				if room.SpecialGift != nil {
 					m := &SpecialGiftModel{}
 					json.Unmarshal(temp, m)
@@ -380,10 +383,6 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					log.Println(string(buffer.Buffer))
 				}
 			case "SYS_GIFT": // 系统礼物
-				fallthrough
-			case "PREPARING": // 准备
-				fallthrough
-			case "CLOSE": // 关闭
 				fallthrough
 			case "BLOCK": // 未知
 				fallthrough
