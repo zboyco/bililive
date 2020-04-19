@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 	"time"
 )
@@ -120,19 +121,28 @@ func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
 	result := make(chan *net.TCPConn)
 	go func() {
 		defer close(result)
-		conn, err := connect(room.server, room.port)
-		if err != nil {
-			log.Panic(err)
+		for {
+			conn, err := connect(room.server, room.port)
+			if err != nil {
+				if room.Debug {
+					log.Panic(err)
+				}
+				log.Println(err)
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			result <- conn
+			return
 		}
-		result <- conn
 	}()
 	return result
 }
 
 func (room *LiveRoom) enterRoom() {
+	rand.Seed(time.Now().Unix())
 	enterInfo := &enterInfo{
 		RoomID:    room.RoomID,
-		UserID:    0,
+		UserID:    9999999999 + rand.Int63(),
 		ProtoVer:  2,
 		Platform:  "web",
 		ClientVer: "1.10.6",
@@ -186,7 +196,13 @@ func (room *LiveRoom) receive(ctx context.Context) {
 
 		_, err := io.ReadFull(room.conn, headerBuffer)
 		if err != nil {
-			log.Panicln(err)
+			if room.Debug {
+				log.Panic(err)
+			}
+			log.Println(err)
+			room.conn = <-room.createConnect()
+			room.enterRoom()
+			continue
 		}
 
 		var head messageHeader
