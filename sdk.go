@@ -41,6 +41,7 @@ const (
 
 // Start 开始接收
 func (room *LiveRoom) Start(ctx context.Context) {
+	rand.Seed(time.Now().Unix())
 	if room.AnalysisRoutineNum == 0 {
 		room.AnalysisRoutineNum = 1
 	}
@@ -111,8 +112,9 @@ func (room *LiveRoom) findServer() error {
 	}
 	danmuConfig := danmuConfigResult{}
 	json.Unmarshal(resDanmuConfig, &danmuConfig)
-	room.server = danmuConfig.Data.HostServerList[0].Host
-	room.port = danmuConfig.Data.HostServerList[0].Port
+	serverIndex := rand.Intn(len(danmuConfig.Data.HostServerList))
+	room.server = danmuConfig.Data.HostServerList[serverIndex].Host
+	room.port = danmuConfig.Data.HostServerList[serverIndex].Port
 	room.token = danmuConfig.Data.Token
 	return nil
 }
@@ -121,17 +123,20 @@ func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
 	result := make(chan *net.TCPConn)
 	go func() {
 		defer close(result)
+		counter := 0
 		for {
 			conn, err := connect(room.server, room.port)
 			if err != nil {
-				if room.Debug {
+				if room.Debug || counter == 10 {
 					log.Panic(err)
 				}
-				log.Println(err)
+				log.Println("connect err:", err)
 				time.Sleep(3 * time.Second)
+				counter++
 				continue
 			}
 			result <- conn
+			log.Println("连接创建成功！")
 			return
 		}
 	}()
@@ -139,7 +144,6 @@ func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
 }
 
 func (room *LiveRoom) enterRoom() {
-	rand.Seed(time.Now().Unix())
 	enterInfo := &enterInfo{
 		RoomID:    room.RoomID,
 		UserID:    9999999999 + rand.Int63(),
@@ -187,6 +191,7 @@ func (room *LiveRoom) receive(ctx context.Context) {
 	var headerBufferReader *bytes.Reader
 	// 包体
 	messageBody := make([]byte, 0)
+	counter := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -196,12 +201,13 @@ func (room *LiveRoom) receive(ctx context.Context) {
 
 		_, err := io.ReadFull(room.conn, headerBuffer)
 		if err != nil {
-			if room.Debug {
+			if room.Debug || counter >= 10 {
 				log.Panic(err)
 			}
-			log.Println(err)
+			log.Println("read err:", err)
 			room.conn = <-room.createConnect()
 			room.enterRoom()
+			counter++
 			continue
 		}
 
@@ -210,31 +216,34 @@ func (room *LiveRoom) receive(ctx context.Context) {
 		binary.Read(headerBufferReader, binary.BigEndian, &head)
 
 		if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
-			if room.Debug {
+			if room.Debug || counter >= 10 {
 				log.Println("***************协议失败***************")
 				log.Println("数据包长度:", head.Length)
 				log.Panic("数据包长度不正确")
 			}
 			room.conn = <-room.createConnect()
 			room.enterRoom()
+			counter++
 			continue
 		}
 
 		payloadBuffer := make([]byte, head.Length-WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err = io.ReadFull(room.conn, payloadBuffer)
 		if err != nil {
-			if room.Debug {
+			if room.Debug || counter >= 10 {
 				log.Panic(err)
 			}
-			log.Println(err)
+			log.Println("read err:", err)
 			room.conn = <-room.createConnect()
 			room.enterRoom()
+			counter++
 			continue
 		}
 
 		messageBody = append(headerBuffer, payloadBuffer...)
 
 		room.chSocketMessage <- messageBody
+		counter = 0
 	}
 }
 
