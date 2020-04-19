@@ -223,7 +223,13 @@ func (room *LiveRoom) receive(ctx context.Context) {
 		payloadBuffer := make([]byte, head.Length-WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err = io.ReadFull(room.conn, payloadBuffer)
 		if err != nil {
-			log.Panicln(err)
+			if room.Debug {
+				log.Panic(err)
+			}
+			log.Println(err)
+			room.conn = <-room.createConnect()
+			room.enterRoom()
+			continue
 		}
 
 		messageBody = append(headerBuffer, payloadBuffer...)
