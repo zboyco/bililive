@@ -46,11 +46,6 @@ func (room *LiveRoom) Start(ctx context.Context) {
 		room.AnalysisRoutineNum = 1
 	}
 
-	err := room.findServer()
-	if err != nil {
-		log.Panic(err)
-	}
-
 	chConn := room.createConnect()
 
 	room.chSocketMessage = make(chan []byte, 10)
@@ -116,7 +111,7 @@ func (room *LiveRoom) findServer() error {
 	room.port = danmuConfig.Data.Port
 	room.hostServerList = danmuConfig.Data.HostServerList
 	room.token = danmuConfig.Data.Token
-	room.currentServerIndex = -1
+	room.currentServerIndex = 0
 	return nil
 }
 
@@ -124,22 +119,34 @@ func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
 	result := make(chan *net.TCPConn)
 	go func() {
 		defer close(result)
-		counter := 0
-		room.currentServerIndex++
+
 		for {
-			conn, err := connect(room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
-			if err != nil {
-				if room.Debug || counter == 10 {
+			if room.hostServerList == nil || len(room.hostServerList) == room.currentServerIndex {
+				err := room.findServer()
+				if err != nil {
 					log.Panic(err)
 				}
-				log.Println("connect err:", err)
-				time.Sleep(3 * time.Second)
-				counter++
-				continue
 			}
-			result <- conn
-			log.Println("连接创建成功！", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
-			return
+
+			counter := 0
+			for {
+				log.Println("尝试创建连接：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
+				conn, err := connect(room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
+				if err != nil {
+					log.Println("connect err:", err)
+					if counter == 3 {
+						room.currentServerIndex++
+						break
+					}
+					time.Sleep(3 * time.Second)
+					counter++
+					continue
+				}
+				result <- conn
+				log.Println("连接创建成功：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
+				room.currentServerIndex++
+				return
+			}
 		}
 	}()
 	return result
