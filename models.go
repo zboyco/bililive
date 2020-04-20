@@ -29,10 +29,12 @@ type LiveRoom struct {
 	chSocketMessage chan []byte
 	chOperation     chan *operateInfo
 
-	server string // 地址
-	port   int    // 端口
-	token  string // key
-	conn   *net.TCPConn
+	server             string // 地址
+	port               int    // 端口
+	hostServerList     []*hostServerList
+	currentServerIndex int
+	token              string // key
+	conn               *net.TCPConn
 }
 
 type messageHeader struct {
@@ -102,15 +104,17 @@ type danmuConfigResult struct {
 }
 
 type danmuData struct {
-	Host           string `json:"host"`
-	Port           int    `json:"port"`
-	HostServerList []struct {
-		Host    string
-		Port    int `json:"port"`
-		WssPort int `json:"wss_port"`
-		WsPort  int `json:"ws_port"`
-	} `json:"host_server_list"`
-	Token string `json:"token"`
+	Host           string            `json:"host"`
+	Port           int               `json:"port"`
+	HostServerList []*hostServerList `json:"host_server_list"`
+	Token          string            `json:"token"`
+}
+
+type hostServerList struct {
+	Host    string `json:"host"`
+	Port    int    `json:"port"`
+	WssPort int    `json:"wss_port"`
+	WsPort  int    `json:"ws_port"`
 }
 
 // 命令模型

@@ -112,10 +112,11 @@ func (room *LiveRoom) findServer() error {
 	}
 	danmuConfig := danmuConfigResult{}
 	json.Unmarshal(resDanmuConfig, &danmuConfig)
-	serverIndex := rand.Intn(len(danmuConfig.Data.HostServerList))
-	room.server = danmuConfig.Data.HostServerList[serverIndex].Host
-	room.port = danmuConfig.Data.HostServerList[serverIndex].Port
+	room.server = danmuConfig.Data.Host
+	room.port = danmuConfig.Data.Port
+	room.hostServerList = danmuConfig.Data.HostServerList
 	room.token = danmuConfig.Data.Token
+	room.currentServerIndex = -1
 	return nil
 }
 
@@ -124,8 +125,9 @@ func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
 	go func() {
 		defer close(result)
 		counter := 0
+		room.currentServerIndex++
 		for {
-			conn, err := connect(room.server, room.port)
+			conn, err := connect(room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
 			if err != nil {
 				if room.Debug || counter == 10 {
 					log.Panic(err)
@@ -136,7 +138,7 @@ func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
 				continue
 			}
 			result <- conn
-			log.Println("连接创建成功！")
+			log.Println("连接创建成功！", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
 			return
 		}
 	}()
