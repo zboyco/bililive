@@ -163,10 +163,15 @@ type GiftModel struct {
 
 // MsgModel 消息
 type MsgModel struct {
-	UserID    int64  // 用户ID
-	UserName  string // 用户昵称
-	Content   string // 内容
-	Timestamp int64  // 时间
+	UserID      int64  // 用户ID
+	UserName    string // 用户昵称
+	UserLevel   int    // 用户等级
+	MedalName   string // 勋章名
+	MedalUpName string // 勋章主播名称
+	MedalRoomID int64  // 勋章直播间ID
+	MedalLevel  int    // 勋章等级
+	Content     string // 内容
+	Timestamp   int64  // 时间
 }
 
 // ComboSendModel 连击模型

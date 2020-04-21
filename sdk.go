@@ -373,11 +373,17 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			case "DANMU_MSG": // 弹幕
 				if room.ReceiveMsg != nil {
 					userInfo := result.Info[2].([]interface{})
+					medalInfo := result.Info[3].([]interface{})
 					m := &MsgModel{
-						Content:   result.Info[1].(string),
-						UserName:  userInfo[1].(string),
-						UserID:    int64(userInfo[0].(float64)),
-						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
+						UserID:      int64(userInfo[0].(float64)),
+						UserName:    userInfo[1].(string),
+						UserLevel:   int(result.Info[4].([]interface{})[0].(float64)),
+						MedalName:   medalInfo[1].(string),
+						MedalUpName: medalInfo[2].(string),
+						MedalRoomID: int64(medalInfo[3].(float64)),
+						MedalLevel:  int(medalInfo[0].(float64)),
+						Content:     result.Info[1].(string),
+						Timestamp:   int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
 					}
 					room.ReceiveMsg(m)
 				}
@@ -466,7 +472,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				fallthrough
 			default:
 				//if room.Debug {
-					log.Println(string(buffer.Buffer))
+				log.Println(string(buffer.Buffer))
 				//}
 			}
 		default:
