@@ -333,6 +333,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			}
 			switch result.CMD {
 			case "LIVE": // 直播开始
+				log.Println(string(buffer.Buffer))
 				if room.Live != nil {
 					room.Live(room.noticeRoomDetail())
 				}
@@ -464,9 +465,9 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			case "WEEK_STAR_CLOCK":
 				fallthrough
 			default:
-				if room.Debug {
+				//if room.Debug {
 					log.Println(string(buffer.Buffer))
-				}
+				//}
 			}
 		default:
 			break
