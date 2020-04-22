@@ -379,11 +379,11 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 						Content:   result.Info[1].(string),
 						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
 					}
-					if medalInfo != nil {
+					if medalInfo != nil || len(medalInfo) >= 4 {
+						m.MedalLevel = int(medalInfo[0].(float64))
 						m.MedalName = medalInfo[1].(string)
 						m.MedalUpName = medalInfo[2].(string)
 						m.MedalRoomID = int64(medalInfo[3].(float64))
-						m.MedalLevel = int(medalInfo[0].(float64))
 					}
 					room.ReceiveMsg(m)
 				}
