@@ -341,6 +341,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			case "PREPARING": // 准备
 				fallthrough
 			case "END": // 结束
+				log.Println(string(buffer.Buffer))
 				if room.End != nil {
 					room.End(room.noticeRoomDetail())
 				}
@@ -350,7 +351,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					json.Unmarshal(buffer.Buffer, m)
 					room.SysMessage(m)
 				}
-			case "ROOM_CHANGE ": // 房间信息变更
+			case "ROOM_CHANGE": // 房间信息变更
 				if room.RoomChange != nil {
 					m := &RoomChangeModel{}
 					json.Unmarshal(temp, m)
@@ -446,7 +447,7 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			case "ROUND": // 未知
 				fallthrough
 			case "REFRESH": // 刷新
-				fallthrough
+				log.Println(string(buffer.Buffer))
 			case "ACTIVITY_BANNER_UPDATE_V2": //
 				fallthrough
 			case "ANCHOR_LOT_CHECKSTATUS": //
