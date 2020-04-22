@@ -333,7 +333,6 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			}
 			switch result.CMD {
 			case "LIVE": // 直播开始
-				log.Println(string(buffer.Buffer))
 				if room.Live != nil {
 					room.Live(room.noticeRoomDetail())
 				}
@@ -342,7 +341,6 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			case "PREPARING": // 准备
 				fallthrough
 			case "END": // 结束
-				log.Println(string(buffer.Buffer))
 				if room.End != nil {
 					room.End(room.noticeRoomDetail())
 				}
@@ -406,7 +404,6 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.GiftComboEnd(m)
 				}
 			case "GUARD_BUY": // 上船
-				//log.Println(string(buffer.Buffer))
 				if room.GuardBuy != nil {
 					m := &GuardBuyModel{}
 					json.Unmarshal(temp, m)
@@ -425,14 +422,12 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.RoomRank(m)
 				}
 			case "SPECIAL_GIFT": // 特殊礼物
-				log.Println(string(buffer.Buffer))
 				if room.SpecialGift != nil {
 					m := &SpecialGiftModel{}
 					json.Unmarshal(temp, m)
 					room.SpecialGift(m)
 				}
 			case "SUPER_CHAT_MESSAGE": // 醒目留言
-				//log.Println(string(buffer.Buffer))
 				if room.SuperChatMessage != nil {
 					m := &SuperChatMessageModel{}
 					json.Unmarshal(temp, m)
@@ -471,9 +466,9 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 			case "WEEK_STAR_CLOCK":
 				fallthrough
 			default:
-				//if room.Debug {
-				log.Println(string(buffer.Buffer))
-				//}
+				if room.Debug {
+					log.Println(string(buffer.Buffer))
+				}
 			}
 		default:
 			break
