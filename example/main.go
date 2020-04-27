@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/zboyco/bililive"
 	"log"
-	"time"
-
 	"net/http"
 	_ "net/http/pprof"
-
-	"github.com/zboyco/bililive"
+	"time"
 )
 
 func main() {
@@ -26,6 +24,7 @@ func main() {
 	liveRoom := &bililive.LiveRoom{
 		Debug:              false, // 不输出日志
 		AnalysisRoutineNum: 1,     // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
+		StormFilter:        true,  // 过滤节奏风暴弹幕
 		RoomID:             *roomID,
 		Live: func(m *bililive.RoomDetailModel) {
 			log.Println("【直播开始】")
@@ -88,10 +87,10 @@ func main() {
 		},
 		SpecialGift: func(m *bililive.SpecialGiftModel) {
 			if m.Storm.Action == "start" {
-				log.Printf("【节奏风暴】开始，id：%s，数量：%d，内容：%s", m.Storm.ID, m.Storm.Num, m.Storm.Content)
+				log.Printf("【节奏风暴】开始，id：%d，数量：%d，内容：%s", m.Storm.ID, m.Storm.Num, m.Storm.Content)
 			}
 			if m.Storm.Action == "end" {
-				log.Printf("【节奏风暴】结束，id：%s", m.Storm.ID)
+				log.Printf("【节奏风暴】结束，id：%d", m.Storm.ID)
 			}
 		},
 		SuperChatMessage: func(m *bililive.SuperChatMessageModel) {

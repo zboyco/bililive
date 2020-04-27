@@ -50,6 +50,9 @@ func (room *LiveRoom) Start(ctx context.Context) {
 
 	room.chSocketMessage = make(chan []byte, 10)
 	room.chOperation = make(chan *operateInfo, 100)
+	if room.StormFilter && room.ReceiveMsg != nil {
+		room.stormContent = make(map[int64]string)
+	}
 
 	nextCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -296,6 +299,7 @@ func (room *LiveRoom) split(ctx context.Context) {
 
 // 分析接收到的数据
 func (room *LiveRoom) analysis(ctx context.Context) {
+analysis:
 	for {
 		select {
 		case <-ctx.Done():
@@ -371,13 +375,24 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 				}
 			case "DANMU_MSG": // 弹幕
 				if room.ReceiveMsg != nil {
+					msgContent := result.Info[1].(string)
+
+					if room.StormFilter && room.storming {
+						for _, value := range room.stormContent {
+							if msgContent == value {
+								log.Println("过滤弹幕：", value)
+								continue analysis
+							}
+						}
+					}
+
 					userInfo := result.Info[2].([]interface{})
 					medalInfo := result.Info[3].([]interface{})
 					m := &MsgModel{
 						UserID:    int64(userInfo[0].(float64)),
 						UserName:  userInfo[1].(string),
 						UserLevel: int(result.Info[4].([]interface{})[0].(float64)),
-						Content:   result.Info[1].(string),
+						Content:   msgContent,
 						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
 					}
 					if medalInfo != nil && len(medalInfo) >= 4 {
@@ -425,9 +440,22 @@ func (room *LiveRoom) analysis(ctx context.Context) {
 					room.RoomRank(m)
 				}
 			case "SPECIAL_GIFT": // 特殊礼物
+				log.Println(string(buffer.Buffer))
+				m := &SpecialGiftModel{}
+				json.Unmarshal(temp, m)
+				if room.StormFilter && room.ReceiveMsg != nil {
+					if m.Storm.Action == "start" {
+						room.storming = true
+						room.stormContent[m.Storm.ID] = m.Storm.Content
+						log.Println("添加过滤弹幕：", m.Storm.ID, m.Storm.Content)
+					}
+					if m.Storm.Action == "end" {
+						delete(room.stormContent, m.Storm.ID)
+						room.storming = len(room.stormContent) > 0
+						log.Println("移除过滤弹幕：", m.Storm.ID)
+					}
+				}
 				if room.SpecialGift != nil {
-					m := &SpecialGiftModel{}
-					json.Unmarshal(temp, m)
 					room.SpecialGift(m)
 				}
 			case "SUPER_CHAT_MESSAGE": // 醒目留言

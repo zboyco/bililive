@@ -9,6 +9,7 @@ type LiveRoom struct {
 	Debug               bool                         // 是否显示日志
 	AnalysisRoutineNum  int                          // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
 	RoomID              int                          // 房间ID（兼容短ID）
+	StormFilter         bool                         // 过滤节奏风暴弹幕，默认false不过滤
 	Live                func(*RoomDetailModel)       // 直播开始通知
 	End                 func(*RoomDetailModel)       // 直播结束通知
 	ReceiveMsg          func(*MsgModel)              // 接收消息方法
@@ -28,6 +29,9 @@ type LiveRoom struct {
 
 	chSocketMessage chan []byte
 	chOperation     chan *operateInfo
+
+	storming     bool             // 是否节奏风暴
+	stormContent map[int64]string // 节奏风暴内容
 
 	server             string // 地址
 	port               int    // 端口
@@ -231,7 +235,7 @@ type RoomChangeModel struct {
 // SpecialGiftModel 特殊礼物模型
 type SpecialGiftModel struct {
 	Storm struct {
-		ID      string `json:"id"`
+		ID      int64  `json:"id"`
 		Action  string `json:"action"`
 		Content string `json:"content"`
 		Num     int    `json:"num"`
