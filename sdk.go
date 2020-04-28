@@ -12,6 +12,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -443,6 +444,12 @@ analysis:
 				log.Println(string(buffer.Buffer))
 				m := &SpecialGiftModel{}
 				json.Unmarshal(temp, m)
+				if m.Storm.Action == "start" {
+					m.Storm.ID, _ = strconv.ParseInt(m.Storm.TempID.(string), 10, 64)
+				}
+				if m.Storm.Action == "end" {
+					m.Storm.ID = int64(m.Storm.TempID.(float64))
+				}
 				if room.StormFilter && room.ReceiveMsg != nil {
 					if m.Storm.Action == "start" {
 						room.storming = true
@@ -452,7 +459,7 @@ analysis:
 					if m.Storm.Action == "end" {
 						delete(room.stormContent, m.Storm.ID)
 						room.storming = len(room.stormContent) > 0
-						log.Println("移除过滤弹幕：", m.Storm.ID)
+						log.Println("移除过滤弹幕：", m.Storm.ID, room.storming)
 					}
 				}
 				if room.SpecialGift != nil {

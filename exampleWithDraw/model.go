@@ -3,7 +3,7 @@ package main
 import "sync"
 
 type memberModel struct {
-	body map[string]bool
+	body map[int64]bool
 	arr  []string
 	sync.Mutex
 }
@@ -11,11 +11,11 @@ type memberModel struct {
 func (m *memberModel) Reset() {
 	m.Lock()
 	defer m.Unlock()
-	m.body = make(map[string]bool)
+	m.body = make(map[int64]bool)
 	m.arr = make([]string, 0)
 }
 
-func (m *memberModel) Add(id, v string) {
+func (m *memberModel) Add(id int64, v string) {
 	m.Lock()
 	defer m.Unlock()
 	if _, ok := m.body[id]; !ok {

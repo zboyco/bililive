@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -48,7 +49,7 @@ func main() {
 	go open("http://127.0.0.1:8080")
 	fmt.Println("浏览器输入 http://127.0.0.1:8080 访问...")
 	fmt.Println()
-	liveRoom.Start()
+	liveRoom.Start(context.TODO())
 }
 
 func open(url string) error {

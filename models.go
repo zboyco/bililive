@@ -235,11 +235,12 @@ type RoomChangeModel struct {
 // SpecialGiftModel 特殊礼物模型
 type SpecialGiftModel struct {
 	Storm struct {
-		ID      int64  `json:"id"`
-		Action  string `json:"action"`
-		Content string `json:"content"`
-		Num     int    `json:"num"`
-		Time    int    `json:"time"`
+		ID      int64       `json:"-"`
+		TempID  interface{} `json:"id"` // 因为b站通知节奏风暴开始和结束id类型不同，用这个变量作为中转
+		Action  string      `json:"action"`
+		Content string      `json:"content"`
+		Num     int         `json:"num"`
+		Time    int         `json:"time"`
 	} `json:"39"`
 }
 

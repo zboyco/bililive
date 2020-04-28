@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -46,7 +47,7 @@ func main() {
 	liveRoom := &bililive.LiveRoom{
 		RoomID: roomID,
 		ReceiveGift: func(gift *bililive.GiftModel) {
-			log.Printf("【礼物】%v:  %v(%v) * %v  价格 %v  连击 %v", gift.UserName, gift.GiftName, gift.GiftID, gift.Num,gift.Price, gift.Combo)
+			log.Printf("【礼物】%v:  %v(%v) * %v  价格 %v  连击 %v", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price, gift.Combo)
 			m := msg{
 				ID:    gift.GiftID,
 				Name:  gift.GiftName,
@@ -64,7 +65,7 @@ func main() {
 			log.Printf("【人气】:  %v", value)
 		},
 	}
-	go liveRoom.Start()
+	go liveRoom.Start(context.TODO())
 	scanner(socket)
 }
 
