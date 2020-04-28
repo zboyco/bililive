@@ -381,7 +381,7 @@ analysis:
 					if room.StormFilter && room.storming {
 						for _, value := range room.stormContent {
 							if msgContent == value {
-								log.Println("过滤弹幕：", value)
+								//log.Println("过滤弹幕：", value)
 								continue analysis
 							}
 						}
@@ -441,7 +441,7 @@ analysis:
 					room.RoomRank(m)
 				}
 			case "SPECIAL_GIFT": // 特殊礼物
-				log.Println(string(buffer.Buffer))
+				//log.Println(string(buffer.Buffer))
 				m := &SpecialGiftModel{}
 				json.Unmarshal(temp, m)
 				if m.Storm.Action == "start" {
@@ -454,12 +454,12 @@ analysis:
 					if m.Storm.Action == "start" {
 						room.storming = true
 						room.stormContent[m.Storm.ID] = m.Storm.Content
-						log.Println("添加过滤弹幕：", m.Storm.ID, m.Storm.Content)
+						//log.Println("添加过滤弹幕：", m.Storm.ID, m.Storm.Content)
 					}
 					if m.Storm.Action == "end" {
 						delete(room.stormContent, m.Storm.ID)
 						room.storming = len(room.stormContent) > 0
-						log.Println("移除过滤弹幕：", m.Storm.ID, room.storming)
+						//log.Println("移除过滤弹幕：", m.Storm.ID, room.storming)
 					}
 				}
 				if room.SpecialGift != nil {
