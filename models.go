@@ -10,8 +10,8 @@ type LiveRoom struct {
 	AnalysisRoutineNum  int                          // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
 	RoomID              int                          // 房间ID（兼容短ID）
 	StormFilter         bool                         // 过滤节奏风暴弹幕，默认false不过滤
-	Live                func(*RoomDetailModel)       // 直播开始通知
-	End                 func(*RoomDetailModel)       // 直播结束通知
+	Live                func()       // 直播开始通知
+	End                 func()       // 直播结束通知
 	ReceiveMsg          func(*MsgModel)              // 接收消息方法
 	ReceiveGift         func(*GiftModel)             // 接收礼物方法
 	ReceivePopularValue func(uint32)                 // 接收人气值方法
@@ -69,32 +69,6 @@ type enterInfo struct {
 type roomInfoResult struct {
 	Code int           `json:"code"`
 	Data *roomInfoData `json:"data"`
-}
-
-type roomDetailResult struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
-	Data    *RoomDetailModel `json:"data"`
-}
-
-// RoomDetailModel 房间信息详情
-type RoomDetailModel struct {
-	RoomInfo struct {
-		RoomID         int    `json:"room_id"`
-		ShortID        int    `json:"short_id"`
-		LiveStatus     int    `json:"live_status"`
-		LiveStartTime  int64  `json:"live_start_time"`
-		Title          string `json:"title"`
-		AreaID         int    `json:"area_id"`
-		ParentAreaID   int    `json:"parent_area_id"`
-		AreaName       string `json:"area_name"`
-		ParentAreaName string `json:"parent_area_name"`
-	} `json:"room_info"`
-	AnchorInfo struct {
-		RelationInfo struct {
-			Attention int `json:"attention"`
-		} `json:"relation_info"`
-	} `json:"anchor_info"`
 }
 
 // 房间数据

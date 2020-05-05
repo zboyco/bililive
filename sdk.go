@@ -19,7 +19,6 @@ import (
 const (
 	roomInitURL                    string = "https://api.live.bilibili.com/room/v1/Room/room_init?id=%d"
 	roomConfigURL                  string = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=%d"
-	roomDetailURL                  string = "https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id=%d"
 	WS_OP_HEARTBEAT                int32  = 2
 	WS_OP_HEARTBEAT_REPLY          int32  = 3
 	WS_OP_MESSAGE                  int32  = 5
@@ -67,25 +66,6 @@ func (room *LiveRoom) Start(ctx context.Context) {
 	go room.heartBeat(nextCtx)
 	go room.split(nextCtx)
 	room.receive(ctx)
-}
-
-func (room *LiveRoom) noticeRoomDetail() *RoomDetailModel {
-	resRoomDetail, err := httpSend(fmt.Sprintf(roomDetailURL, room.RoomID))
-	if err != nil {
-		if room.Debug {
-			log.Println(err)
-		}
-		return nil
-	}
-	roomInfo := roomDetailResult{}
-	err = json.Unmarshal(resRoomDetail, &roomInfo)
-	if err != nil {
-		if room.Debug {
-			log.Println(err)
-		}
-		return nil
-	}
-	return roomInfo.Data
 }
 
 func (room *LiveRoom) findServer() error {
@@ -339,7 +319,7 @@ analysis:
 			switch result.CMD {
 			case "LIVE": // 直播开始
 				if room.Live != nil {
-					room.Live(room.noticeRoomDetail())
+					room.Live()
 				}
 			case "CLOSE": // 关闭
 				fallthrough
@@ -348,7 +328,7 @@ analysis:
 			case "END": // 结束
 				log.Println(string(buffer.Buffer))
 				if room.End != nil {
-					room.End(room.noticeRoomDetail())
+					room.End()
 				}
 			case "SYS_MSG": // 系统消息
 				if room.SysMessage != nil {

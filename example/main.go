@@ -26,25 +26,11 @@ func main() {
 		AnalysisRoutineNum: 1,     // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
 		StormFilter:        true,  // 过滤节奏风暴弹幕
 		RoomID:             *roomID,
-		Live: func(m *bililive.RoomDetailModel) {
+		Live: func() {
 			log.Println("【直播开始】")
-			isLive := "直播中"
-			if m.RoomInfo.LiveStatus != 1 {
-				isLive = "未开播"
-			}
-			liveStartTime := time.Unix(m.RoomInfo.LiveStartTime, 0).Format("2006-01-02 15:04:05")
-			alreadyLiveMinutes := time.Now().Sub(time.Unix(m.RoomInfo.LiveStartTime, 0)).Minutes()
-			log.Printf("【房间信息】%s ，标题:【%s】，分区:【%s-%s】，开播时间:【%s】，已播时间:【%f分钟】", isLive, m.RoomInfo.Title, m.RoomInfo.ParentAreaName, m.RoomInfo.AreaName, liveStartTime, alreadyLiveMinutes)
 		},
-		End: func(m *bililive.RoomDetailModel) {
+		End: func() {
 			log.Println("【直播结束】")
-			isLive := "直播中"
-			if m.RoomInfo.LiveStatus != 1 {
-				isLive = "未开播"
-			}
-			liveStartTime := time.Unix(m.RoomInfo.LiveStartTime, 0).Format("2006-01-02 15:04:05")
-			alreadyLiveMinutes := time.Now().Sub(time.Unix(m.RoomInfo.LiveStartTime, 0)).Minutes()
-			log.Printf("【房间信息】%s ，标题:【%s】，分区:【%s-%s】，开播时间:【%s】，已播时间:【%f分钟】", isLive, m.RoomInfo.Title, m.RoomInfo.ParentAreaName, m.RoomInfo.AreaName, liveStartTime, alreadyLiveMinutes)
 		},
 		ReceivePopularValue: func(v uint32) {
 			log.Printf("【直播人气】%v", v)
