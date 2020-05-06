@@ -32,16 +32,15 @@ func main() {
 	var point string
 	var run bool
 	go startWeb(m, &point, &run)
-	liveRoom := &bililive.LiveRoom{
+	live := &bililive.Live{
 		Debug:  false,
-		RoomID: roomID,
-		ReceiveMsg: func(msg *bililive.MsgModel) {
+		ReceiveMsg: func(roomID int, msg *bililive.MsgModel) {
 			// log.Printf("【弹幕】%v:  %v", msg.UserName, msg.Content)
 			if run && point != "" && msg.Content == point {
 				m.Add(msg.UserID, msg.UserName)
 			}
 		},
-		ReceivePopularValue: func(value uint32) {
+		ReceivePopularValue: func(roomID int, value uint32) {
 			log.Printf("【人气】:  %v", value)
 		},
 	}
@@ -49,7 +48,9 @@ func main() {
 	go open("http://127.0.0.1:8080")
 	fmt.Println("浏览器输入 http://127.0.0.1:8080 访问...")
 	fmt.Println()
-	liveRoom.Start(context.TODO())
+	live.Start(context.TODO())
+	live.Join(roomID)
+	live.Wait()
 }
 
 func open(url string) error {

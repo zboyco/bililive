@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -40,55 +41,356 @@ const (
 )
 
 // Start 开始接收
-func (room *LiveRoom) Start(ctx context.Context) {
+func (live *Live) Start(ctx context.Context) {
+	live.ctx = ctx
+
 	rand.Seed(time.Now().Unix())
-	if room.AnalysisRoutineNum == 0 {
-		room.AnalysisRoutineNum = 1
+	if live.AnalysisRoutineNum == 0 {
+		live.AnalysisRoutineNum = 1
 	}
 
-	chConn := room.createConnect()
-
-	room.chSocketMessage = make(chan []byte, 10)
-	room.chOperation = make(chan *operateInfo, 100)
-	if room.StormFilter && room.ReceiveMsg != nil {
-		room.stormContent = make(map[int64]string)
+	live.room = make(map[int]*liveRoom)
+	live.chSocketMessage = make(chan *socketMessage, 10)
+	live.chOperation = make(chan *operateInfo, 100)
+	if live.StormFilter && live.ReceiveMsg != nil {
+		live.storming = make(map[int]bool)
+		live.stormContent = make(map[int]map[int64]string)
 	}
 
-	nextCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	live.wg = sync.WaitGroup{}
 
-	for i := 0; i < room.AnalysisRoutineNum; i++ {
-		go room.analysis(nextCtx)
+	for i := 0; i < live.AnalysisRoutineNum; i++ {
+		live.wg.Add(1)
+		go func() {
+			defer live.wg.Done()
+			live.analysis(ctx)
+		}()
 	}
 
-	room.conn = <-chConn
-	room.enterRoom()
-	go room.heartBeat(nextCtx)
-	go room.split(nextCtx)
-	room.receive(ctx)
+	live.wg.Add(1)
+	go func() {
+		defer live.wg.Done()
+		live.split(ctx)
+	}()
 }
 
-func (room *LiveRoom) findServer() error {
-	resRoom, err := httpSend(fmt.Sprintf(roomInitURL, room.RoomID))
+func (live *Live) Wait() {
+	live.wg.Wait()
+}
+
+// Join 添加房间
+func (live *Live) Join(roomIDs ...int) error {
+	if roomIDs == nil || len(roomIDs) == 0 {
+		return errors.New("没有要添加的房间")
+	}
+
+	for _, roomID := range roomIDs {
+		if _, exist := live.room[roomID]; exist {
+			return errors.New(fmt.Sprintf("房间 %d 已存在", roomID))
+		}
+	}
+	for _, roomID := range roomIDs {
+		nextCtx, cancel := context.WithCancel(live.ctx)
+
+		room := &liveRoom{
+			roomID: roomID,
+			cancel: cancel,
+		}
+		live.room[roomID] = room
+		room.conn = <-room.createConnect()
+		room.enterRoom()
+		go room.heartBeat(nextCtx)
+		live.stormContent[roomID] = make(map[int64]string)
+		go room.receive(nextCtx, live.chSocketMessage)
+	}
+	return nil
+}
+
+// Remove 移出房间
+func (live *Live) Remove(roomIDs ...int) error {
+	if roomIDs == nil || len(roomIDs) == 0 {
+		return errors.New("没有要移出的房间")
+	}
+
+	for _, roomID := range roomIDs {
+		if room, exist := live.room[roomID]; exist {
+			room.cancel()
+		}
+	}
+	return nil
+}
+
+// 拆分数据
+func (live *Live) split(ctx context.Context) {
+	var (
+		message            *socketMessage
+		head               messageHeader
+		headerBufferReader *bytes.Reader
+		payloadBuffer      []byte
+	)
+	for {
+		message = <-live.chSocketMessage
+		for len(message.body) > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			headerBufferReader = bytes.NewReader(message.body[:WS_PACKAGE_HEADER_TOTAL_LENGTH])
+			binary.Read(headerBufferReader, binary.BigEndian, &head)
+			payloadBuffer = message.body[WS_PACKAGE_HEADER_TOTAL_LENGTH:head.Length]
+			message.body = message.body[head.Length:]
+
+			if head.Length == WS_PACKAGE_HEADER_TOTAL_LENGTH {
+				continue
+			}
+
+			if head.ProtocolVersion == WS_BODY_PROTOCOL_VERSION_DEFLATE {
+				message.body = doZlibUnCompress(payloadBuffer)
+				continue
+			}
+			if live.Debug {
+				log.Println(string(payloadBuffer))
+			}
+			live.chOperation <- &operateInfo{RoomID: message.roomID, Operation: head.Operation, Buffer: payloadBuffer}
+		}
+	}
+}
+
+// 分析接收到的数据
+func (live *Live) analysis(ctx context.Context) {
+analysis:
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		buffer := <-live.chOperation
+		switch buffer.Operation {
+		case WS_OP_HEARTBEAT_REPLY:
+			if live.ReceivePopularValue != nil {
+				m := binary.BigEndian.Uint32(buffer.Buffer)
+				live.ReceivePopularValue(buffer.RoomID, m)
+			}
+		case WS_OP_CONNECT_SUCCESS:
+			if live.Debug {
+				log.Println("CONNECT_SUCCESS", string(buffer.Buffer))
+			}
+		case WS_OP_MESSAGE:
+			result := cmdModel{}
+			err := json.Unmarshal(buffer.Buffer, &result)
+			if err != nil {
+				if live.Debug {
+					log.Println(err)
+					log.Println(string(buffer.Buffer))
+				}
+				continue
+			}
+			temp, err := json.Marshal(result.Data)
+			if err != nil {
+				if live.Debug {
+					log.Println(err)
+				}
+				continue
+			}
+			switch result.CMD {
+			case "LIVE": // 直播开始
+				if live.Live != nil {
+					live.Live(buffer.RoomID)
+				}
+			case "CLOSE": // 关闭
+				fallthrough
+			case "PREPARING": // 准备
+				fallthrough
+			case "END": // 结束
+				log.Println(string(buffer.Buffer))
+				if live.End != nil {
+					live.End(buffer.RoomID)
+				}
+			case "SYS_MSG": // 系统消息
+				if live.SysMessage != nil {
+					m := &SysMsgModel{}
+					json.Unmarshal(buffer.Buffer, m)
+					live.SysMessage(buffer.RoomID, m)
+				}
+			case "ROOM_CHANGE": // 房间信息变更
+				if live.RoomChange != nil {
+					m := &RoomChangeModel{}
+					json.Unmarshal(temp, m)
+					live.RoomChange(buffer.RoomID, m)
+				}
+			case "WELCOME": // 用户进入
+				if live.UserEnter != nil {
+					m := &UserEnterModel{}
+					json.Unmarshal(temp, m)
+					live.UserEnter(buffer.RoomID, m)
+				}
+			case "WELCOME_GUARD": // 舰长进入
+				if live.GuardEnter != nil {
+					m := &GuardEnterModel{}
+					json.Unmarshal(temp, m)
+					live.GuardEnter(buffer.RoomID, m)
+				}
+			case "DANMU_MSG": // 弹幕
+				if live.ReceiveMsg != nil {
+					msgContent := result.Info[1].(string)
+
+					if live.StormFilter && live.storming[buffer.RoomID] {
+						for _, value := range live.stormContent[buffer.RoomID] {
+							if msgContent == value {
+								//log.Println("过滤弹幕：", value)
+								continue analysis
+							}
+						}
+					}
+
+					userInfo := result.Info[2].([]interface{})
+					medalInfo := result.Info[3].([]interface{})
+					m := &MsgModel{
+						UserID:    int64(userInfo[0].(float64)),
+						UserName:  userInfo[1].(string),
+						UserLevel: int(result.Info[4].([]interface{})[0].(float64)),
+						Content:   msgContent,
+						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
+					}
+					if medalInfo != nil && len(medalInfo) >= 4 {
+						m.MedalLevel = int(medalInfo[0].(float64))
+						m.MedalName = medalInfo[1].(string)
+						m.MedalUpName = medalInfo[2].(string)
+						m.MedalRoomID = int64(medalInfo[3].(float64))
+					}
+					live.ReceiveMsg(buffer.RoomID, m)
+				}
+			case "SEND_GIFT": // 礼物通知
+				if live.ReceiveGift != nil {
+					m := &GiftModel{}
+					json.Unmarshal(temp, m)
+					live.ReceiveGift(buffer.RoomID, m)
+				}
+			case "COMBO_SEND": // 连击
+				if live.GiftComboSend != nil {
+					m := &ComboSendModel{}
+					json.Unmarshal(temp, m)
+					live.GiftComboSend(buffer.RoomID, m)
+				}
+			case "COMBO_END": // 连击结束
+				if live.GiftComboEnd != nil {
+					m := &ComboEndModel{}
+					json.Unmarshal(temp, m)
+					live.GiftComboEnd(buffer.RoomID, m)
+				}
+			case "GUARD_BUY": // 上船
+				if live.GuardBuy != nil {
+					m := &GuardBuyModel{}
+					json.Unmarshal(temp, m)
+					live.GuardBuy(buffer.RoomID, m)
+				}
+			case "ROOM_REAL_TIME_MESSAGE_UPDATE": // 粉丝数更新
+				if live.FansUpdate != nil {
+					m := &FansUpdateModel{}
+					json.Unmarshal(temp, m)
+					live.FansUpdate(buffer.RoomID, m)
+				}
+			case "ROOM_RANK": // 小时榜
+				if live.RoomRank != nil {
+					m := &RankModel{}
+					json.Unmarshal(temp, m)
+					live.RoomRank(buffer.RoomID, m)
+				}
+			case "SPECIAL_GIFT": // 特殊礼物
+				//log.Println(string(buffer.Buffer))
+				m := &SpecialGiftModel{}
+				json.Unmarshal(temp, m)
+				if m.Storm.Action == "start" {
+					m.Storm.ID, _ = strconv.ParseInt(m.Storm.TempID.(string), 10, 64)
+				}
+				if m.Storm.Action == "end" {
+					m.Storm.ID = int64(m.Storm.TempID.(float64))
+				}
+				if live.StormFilter && live.ReceiveMsg != nil {
+					if m.Storm.Action == "start" {
+						live.storming[buffer.RoomID] = true
+						live.stormContent[buffer.RoomID][m.Storm.ID] = m.Storm.Content
+						//log.Println("添加过滤弹幕：", m.Storm.ID, m.Storm.Content)
+					}
+					if m.Storm.Action == "end" {
+						delete(live.stormContent[buffer.RoomID], m.Storm.ID)
+						live.storming[buffer.RoomID] = len(live.stormContent) > 0
+						//log.Println("移除过滤弹幕：", m.Storm.ID, live.storming)
+					}
+				}
+				if live.SpecialGift != nil {
+					live.SpecialGift(buffer.RoomID, m)
+				}
+			case "SUPER_CHAT_MESSAGE": // 醒目留言
+				if live.SuperChatMessage != nil {
+					m := &SuperChatMessageModel{}
+					json.Unmarshal(temp, m)
+					live.SuperChatMessage(buffer.RoomID, m)
+				}
+			case "SUPER_CHAT_MESSAGE_JPN":
+				if live.Debug {
+					log.Println(string(buffer.Buffer))
+				}
+			case "SYS_GIFT": // 系统礼物
+				fallthrough
+			case "BLOCK": // 未知
+				fallthrough
+			case "ROUND": // 未知
+				fallthrough
+			case "REFRESH": // 刷新
+				log.Println(string(buffer.Buffer))
+			case "ACTIVITY_BANNER_UPDATE_V2": //
+				fallthrough
+			case "ANCHOR_LOT_CHECKSTATUS": //
+				fallthrough
+			case "GUARD_MSG": // 舰长信息
+				fallthrough
+			case "NOTICE_MSG": // 通知信息
+				fallthrough
+			case "GUARD_LOTTERY_START": // 舰长抽奖开始
+				fallthrough
+			case "USER_TOAST_MSG": // 用户通知消息
+				fallthrough
+			case "ENTRY_EFFECT": // 进入效果
+				fallthrough
+			case "WISH_BOTTLE": // 许愿瓶
+				fallthrough
+			case "ROOM_BLOCK_MSG":
+				fallthrough
+			case "WEEK_STAR_CLOCK":
+				fallthrough
+			default:
+				if live.Debug {
+					log.Println(string(buffer.Buffer))
+				}
+			}
+		default:
+			break
+		}
+	}
+}
+
+func (room *liveRoom) findServer() error {
+	resRoom, err := httpSend(fmt.Sprintf(roomInitURL, room.roomID))
 	if err != nil {
 		return err
 	}
-	if room.Debug {
-		log.Println(string(resRoom))
-	}
+
 	roomInfo := roomInfoResult{}
 	json.Unmarshal(resRoom, &roomInfo)
 	if roomInfo.Code != 0 {
 		return errors.New("房间不正确")
 	}
-	room.RoomID = roomInfo.Data.RoomID
-	resDanmuConfig, err := httpSend(fmt.Sprintf(roomConfigURL, room.RoomID))
+	room.realRoomID = roomInfo.Data.RoomID
+	resDanmuConfig, err := httpSend(fmt.Sprintf(roomConfigURL, room.realRoomID))
 	if err != nil {
 		return err
 	}
-	if room.Debug {
-		log.Println(string(resDanmuConfig))
-	}
+
 	danmuConfig := danmuConfigResult{}
 	json.Unmarshal(resDanmuConfig, &danmuConfig)
 	room.server = danmuConfig.Data.Host
@@ -99,7 +401,7 @@ func (room *LiveRoom) findServer() error {
 	return nil
 }
 
-func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
+func (room *liveRoom) createConnect() <-chan *net.TCPConn {
 	result := make(chan *net.TCPConn)
 	go func() {
 		defer close(result)
@@ -136,9 +438,9 @@ func (room *LiveRoom) createConnect() <-chan *net.TCPConn {
 	return result
 }
 
-func (room *LiveRoom) enterRoom() {
+func (room *liveRoom) enterRoom() {
 	enterInfo := &enterInfo{
-		RoomID:    room.RoomID,
+		RoomID:    room.realRoomID,
 		UserID:    9999999999 + rand.Int63(),
 		ProtoVer:  2,
 		Platform:  "web",
@@ -154,16 +456,8 @@ func (room *LiveRoom) enterRoom() {
 	room.sendData(WS_OP_USER_AUTHENTICATION, payload)
 }
 
-func connect(host string, port int) (*net.TCPConn, error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", host, port))
-	if err != nil {
-		return nil, err
-	}
-	return net.DialTCP("tcp", nil, tcpAddr)
-}
-
 // 心跳
-func (room *LiveRoom) heartBeat(ctx context.Context) {
+func (room *liveRoom) heartBeat(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -177,7 +471,7 @@ func (room *LiveRoom) heartBeat(ctx context.Context) {
 }
 
 // 接收消息
-func (room *LiveRoom) receive(ctx context.Context) {
+func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socketMessage) {
 	// 包头总长16个字节
 	headerBuffer := make([]byte, WS_PACKAGE_HEADER_TOTAL_LENGTH)
 	// headerBufferReader
@@ -194,7 +488,7 @@ func (room *LiveRoom) receive(ctx context.Context) {
 
 		_, err := io.ReadFull(room.conn, headerBuffer)
 		if err != nil {
-			if room.Debug || counter >= 10 {
+			if counter >= 10 {
 				log.Panic(err)
 			}
 			log.Println("read err:", err)
@@ -209,7 +503,7 @@ func (room *LiveRoom) receive(ctx context.Context) {
 		binary.Read(headerBufferReader, binary.BigEndian, &head)
 
 		if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
-			if room.Debug || counter >= 10 {
+			if counter >= 10 {
 				log.Println("***************协议失败***************")
 				log.Println("数据包长度:", head.Length)
 				log.Panic("数据包长度不正确")
@@ -223,7 +517,7 @@ func (room *LiveRoom) receive(ctx context.Context) {
 		payloadBuffer := make([]byte, head.Length-WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err = io.ReadFull(room.conn, payloadBuffer)
 		if err != nil {
-			if room.Debug || counter >= 10 {
+			if counter >= 10 {
 				log.Panic(err)
 			}
 			log.Println("read err:", err)
@@ -235,267 +529,16 @@ func (room *LiveRoom) receive(ctx context.Context) {
 
 		messageBody = append(headerBuffer, payloadBuffer...)
 
-		room.chSocketMessage <- messageBody
+		chSocketMessage <- &socketMessage{
+			roomID: room.roomID,
+			body:   messageBody,
+		}
 		counter = 0
 	}
 }
 
-// 拆分数据
-func (room *LiveRoom) split(ctx context.Context) {
-	var (
-		messageBody        []byte
-		head               messageHeader
-		headerBufferReader *bytes.Reader
-		payloadBuffer      []byte
-	)
-	for {
-		messageBody = <-room.chSocketMessage
-		for len(messageBody) > 0 {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			headerBufferReader = bytes.NewReader(messageBody[:WS_PACKAGE_HEADER_TOTAL_LENGTH])
-			binary.Read(headerBufferReader, binary.BigEndian, &head)
-			payloadBuffer = messageBody[WS_PACKAGE_HEADER_TOTAL_LENGTH:head.Length]
-			messageBody = messageBody[head.Length:]
-
-			if head.Length == WS_PACKAGE_HEADER_TOTAL_LENGTH {
-				continue
-			}
-
-			if head.ProtocolVersion == WS_BODY_PROTOCOL_VERSION_DEFLATE {
-				messageBody = doZlibUnCompress(payloadBuffer)
-				continue
-			}
-			if room.Debug {
-				log.Println(string(payloadBuffer))
-			}
-			room.chOperation <- &operateInfo{Operation: head.Operation, Buffer: payloadBuffer}
-		}
-	}
-}
-
-// 分析接收到的数据
-func (room *LiveRoom) analysis(ctx context.Context) {
-analysis:
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		buffer := <-room.chOperation
-		switch buffer.Operation {
-		case WS_OP_HEARTBEAT_REPLY:
-			if room.ReceivePopularValue != nil {
-				m := binary.BigEndian.Uint32(buffer.Buffer)
-				room.ReceivePopularValue(m)
-			}
-		case WS_OP_CONNECT_SUCCESS:
-			if room.Debug {
-				log.Println("CONNECT_SUCCESS", string(buffer.Buffer))
-			}
-		case WS_OP_MESSAGE:
-			result := cmdModel{}
-			err := json.Unmarshal(buffer.Buffer, &result)
-			if err != nil {
-				if room.Debug {
-					log.Println(err)
-					log.Println(string(buffer.Buffer))
-				}
-				continue
-			}
-			temp, err := json.Marshal(result.Data)
-			if err != nil {
-				if room.Debug {
-					log.Println(err)
-				}
-				continue
-			}
-			switch result.CMD {
-			case "LIVE": // 直播开始
-				if room.Live != nil {
-					room.Live()
-				}
-			case "CLOSE": // 关闭
-				fallthrough
-			case "PREPARING": // 准备
-				fallthrough
-			case "END": // 结束
-				log.Println(string(buffer.Buffer))
-				if room.End != nil {
-					room.End()
-				}
-			case "SYS_MSG": // 系统消息
-				if room.SysMessage != nil {
-					m := &SysMsgModel{}
-					json.Unmarshal(buffer.Buffer, m)
-					room.SysMessage(m)
-				}
-			case "ROOM_CHANGE": // 房间信息变更
-				if room.RoomChange != nil {
-					m := &RoomChangeModel{}
-					json.Unmarshal(temp, m)
-					room.RoomChange(m)
-				}
-			case "WELCOME": // 用户进入
-				if room.UserEnter != nil {
-					m := &UserEnterModel{}
-					json.Unmarshal(temp, m)
-					room.UserEnter(m)
-				}
-			case "WELCOME_GUARD": // 舰长进入
-				if room.GuardEnter != nil {
-					m := &GuardEnterModel{}
-					json.Unmarshal(temp, m)
-					room.GuardEnter(m)
-				}
-			case "DANMU_MSG": // 弹幕
-				if room.ReceiveMsg != nil {
-					msgContent := result.Info[1].(string)
-
-					if room.StormFilter && room.storming {
-						for _, value := range room.stormContent {
-							if msgContent == value {
-								//log.Println("过滤弹幕：", value)
-								continue analysis
-							}
-						}
-					}
-
-					userInfo := result.Info[2].([]interface{})
-					medalInfo := result.Info[3].([]interface{})
-					m := &MsgModel{
-						UserID:    int64(userInfo[0].(float64)),
-						UserName:  userInfo[1].(string),
-						UserLevel: int(result.Info[4].([]interface{})[0].(float64)),
-						Content:   msgContent,
-						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
-					}
-					if medalInfo != nil && len(medalInfo) >= 4 {
-						m.MedalLevel = int(medalInfo[0].(float64))
-						m.MedalName = medalInfo[1].(string)
-						m.MedalUpName = medalInfo[2].(string)
-						m.MedalRoomID = int64(medalInfo[3].(float64))
-					}
-					room.ReceiveMsg(m)
-				}
-			case "SEND_GIFT": // 礼物通知
-				if room.ReceiveGift != nil {
-					m := &GiftModel{}
-					json.Unmarshal(temp, m)
-					room.ReceiveGift(m)
-				}
-			case "COMBO_SEND": // 连击
-				if room.GiftComboSend != nil {
-					m := &ComboSendModel{}
-					json.Unmarshal(temp, m)
-					room.GiftComboSend(m)
-				}
-			case "COMBO_END": // 连击结束
-				if room.GiftComboEnd != nil {
-					m := &ComboEndModel{}
-					json.Unmarshal(temp, m)
-					room.GiftComboEnd(m)
-				}
-			case "GUARD_BUY": // 上船
-				if room.GuardBuy != nil {
-					m := &GuardBuyModel{}
-					json.Unmarshal(temp, m)
-					room.GuardBuy(m)
-				}
-			case "ROOM_REAL_TIME_MESSAGE_UPDATE": // 粉丝数更新
-				if room.FansUpdate != nil {
-					m := &FansUpdateModel{}
-					json.Unmarshal(temp, m)
-					room.FansUpdate(m)
-				}
-			case "ROOM_RANK": // 小时榜
-				if room.RoomRank != nil {
-					m := &RankModel{}
-					json.Unmarshal(temp, m)
-					room.RoomRank(m)
-				}
-			case "SPECIAL_GIFT": // 特殊礼物
-				//log.Println(string(buffer.Buffer))
-				m := &SpecialGiftModel{}
-				json.Unmarshal(temp, m)
-				if m.Storm.Action == "start" {
-					m.Storm.ID, _ = strconv.ParseInt(m.Storm.TempID.(string), 10, 64)
-				}
-				if m.Storm.Action == "end" {
-					m.Storm.ID = int64(m.Storm.TempID.(float64))
-				}
-				if room.StormFilter && room.ReceiveMsg != nil {
-					if m.Storm.Action == "start" {
-						room.storming = true
-						room.stormContent[m.Storm.ID] = m.Storm.Content
-						//log.Println("添加过滤弹幕：", m.Storm.ID, m.Storm.Content)
-					}
-					if m.Storm.Action == "end" {
-						delete(room.stormContent, m.Storm.ID)
-						room.storming = len(room.stormContent) > 0
-						//log.Println("移除过滤弹幕：", m.Storm.ID, room.storming)
-					}
-				}
-				if room.SpecialGift != nil {
-					room.SpecialGift(m)
-				}
-			case "SUPER_CHAT_MESSAGE": // 醒目留言
-				if room.SuperChatMessage != nil {
-					m := &SuperChatMessageModel{}
-					json.Unmarshal(temp, m)
-					room.SuperChatMessage(m)
-				}
-			case "SUPER_CHAT_MESSAGE_JPN":
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
-			case "SYS_GIFT": // 系统礼物
-				fallthrough
-			case "BLOCK": // 未知
-				fallthrough
-			case "ROUND": // 未知
-				fallthrough
-			case "REFRESH": // 刷新
-				log.Println(string(buffer.Buffer))
-			case "ACTIVITY_BANNER_UPDATE_V2": //
-				fallthrough
-			case "ANCHOR_LOT_CHECKSTATUS": //
-				fallthrough
-			case "GUARD_MSG": // 舰长信息
-				fallthrough
-			case "NOTICE_MSG": // 通知信息
-				fallthrough
-			case "GUARD_LOTTERY_START": // 舰长抽奖开始
-				fallthrough
-			case "USER_TOAST_MSG": // 用户通知消息
-				fallthrough
-			case "ENTRY_EFFECT": // 进入效果
-				fallthrough
-			case "WISH_BOTTLE": // 许愿瓶
-				fallthrough
-			case "ROOM_BLOCK_MSG":
-				fallthrough
-			case "WEEK_STAR_CLOCK":
-				fallthrough
-			default:
-				if room.Debug {
-					log.Println(string(buffer.Buffer))
-				}
-			}
-		default:
-			break
-		}
-	}
-}
-
 // 发送数据
-func (room *LiveRoom) sendData(operation int32, payload []byte) {
+func (room *liveRoom) sendData(operation int32, payload []byte) {
 
 	b := bytes.NewBuffer([]byte{})
 	head := messageHeader{
@@ -506,19 +549,27 @@ func (room *LiveRoom) sendData(operation int32, payload []byte) {
 		SequenceID:      WS_HEADER_DEFAULT_SEQUENCE,
 	}
 	err := binary.Write(b, binary.BigEndian, head)
-	if err != nil && room.Debug {
+	if err != nil {
 		log.Println(err)
 	}
 
 	err = binary.Write(b, binary.LittleEndian, payload)
-	if err != nil && room.Debug {
+	if err != nil {
 		log.Println(err)
 	}
 
 	_, err = room.conn.Write(b.Bytes())
-	if err != nil && room.Debug {
+	if err != nil {
 		log.Println(err)
 	}
+}
+
+func connect(host string, port int) (*net.TCPConn, error) {
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return nil, err
+	}
+	return net.DialTCP("tcp", nil, tcpAddr)
 }
 
 // 进行zlib解压缩

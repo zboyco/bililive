@@ -1,38 +1,54 @@
 package bililive
 
 import (
+	"context"
 	"net"
+	"sync"
 )
 
-// LiveRoom 直播间
-type LiveRoom struct {
-	Debug               bool                         // 是否显示日志
-	AnalysisRoutineNum  int                          // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
-	RoomID              int                          // 房间ID（兼容短ID）
-	StormFilter         bool                         // 过滤节奏风暴弹幕，默认false不过滤
-	Live                func()       // 直播开始通知
-	End                 func()       // 直播结束通知
-	ReceiveMsg          func(*MsgModel)              // 接收消息方法
-	ReceiveGift         func(*GiftModel)             // 接收礼物方法
-	ReceivePopularValue func(uint32)                 // 接收人气值方法
-	UserEnter           func(*UserEnterModel)        // 用户进入方法
-	GuardEnter          func(*GuardEnterModel)       // 舰长进入方法
-	GiftComboSend       func(*ComboSendModel)        // 礼物连击方法
-	GiftComboEnd        func(*ComboEndModel)         // 礼物连击结束方法
-	GuardBuy            func(*GuardBuyModel)         // 上船
-	FansUpdate          func(*FansUpdateModel)       // 粉丝数更新
-	RoomRank            func(*RankModel)             // 小时榜
-	RoomChange          func(*RoomChangeModel)       // 房间信息变更
-	SpecialGift         func(*SpecialGiftModel)      // 特殊礼物
-	SuperChatMessage    func(*SuperChatMessageModel) // 超级留言
-	SysMessage          func(*SysMsgModel)           // 系统信息
+// Live 直播间
+type Live struct {
+	Debug               bool                              // 是否显示日志
+	AnalysisRoutineNum  int                               // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
+	StormFilter         bool                              // 过滤节奏风暴弹幕，默认false不过滤
+	Live                func(int)                         // 直播开始通知
+	End                 func(int)                         // 直播结束通知
+	ReceiveMsg          func(int, *MsgModel)              // 接收消息方法
+	ReceiveGift         func(int, *GiftModel)             // 接收礼物方法
+	ReceivePopularValue func(int, uint32)                 // 接收人气值方法
+	UserEnter           func(int, *UserEnterModel)        // 用户进入方法
+	GuardEnter          func(int, *GuardEnterModel)       // 舰长进入方法
+	GiftComboSend       func(int, *ComboSendModel)        // 礼物连击方法
+	GiftComboEnd        func(int, *ComboEndModel)         // 礼物连击结束方法
+	GuardBuy            func(int, *GuardBuyModel)         // 上船
+	FansUpdate          func(int, *FansUpdateModel)       // 粉丝数更新
+	RoomRank            func(int, *RankModel)             // 小时榜
+	RoomChange          func(int, *RoomChangeModel)       // 房间信息变更
+	SpecialGift         func(int, *SpecialGiftModel)      // 特殊礼物
+	SuperChatMessage    func(int, *SuperChatMessageModel) // 超级留言
+	SysMessage          func(int, *SysMsgModel)           // 系统信息
 
-	chSocketMessage chan []byte
+	wg  sync.WaitGroup
+	ctx context.Context
+
+	chSocketMessage chan *socketMessage
 	chOperation     chan *operateInfo
 
-	storming     bool             // 是否节奏风暴
-	stormContent map[int64]string // 节奏风暴内容
+	storming     map[int]bool             // 是否节奏风暴
+	stormContent map[int]map[int64]string // 节奏风暴内容
 
+	room map[int]*liveRoom // 直播间
+}
+
+type socketMessage struct {
+	roomID int // 房间ID（兼容短ID）
+	body   []byte
+}
+
+type liveRoom struct {
+	roomID             int // 房间ID（兼容短ID）
+	realRoomID         int
+	cancel             context.CancelFunc
 	server             string // 地址
 	port               int    // 端口
 	hostServerList     []*hostServerList
@@ -50,6 +66,7 @@ type messageHeader struct {
 }
 
 type operateInfo struct {
+	RoomID    int
 	Operation int32
 	Buffer    []byte
 }

@@ -44,9 +44,8 @@ func main() {
 	if roomID <= 0 {
 		log.Fatalln("房间号错误!")
 	}
-	liveRoom := &bililive.LiveRoom{
-		RoomID: roomID,
-		ReceiveGift: func(gift *bililive.GiftModel) {
+	live := &bililive.Live{
+		ReceiveGift: func(roomID int, gift *bililive.GiftModel) {
 			log.Printf("【礼物】%v:  %v(%v) * %v  价格 %v  连击 %v", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price, gift.Combo)
 			m := msg{
 				ID:    gift.GiftID,
@@ -61,11 +60,12 @@ func main() {
 			binary.Write(buff, binary.LittleEndian, body)
 			socket.sendTCP(buff.Bytes())
 		},
-		ReceivePopularValue: func(value uint32) {
+		ReceivePopularValue: func(roomID int, value uint32) {
 			log.Printf("【人气】:  %v", value)
 		},
 	}
-	go liveRoom.Start(context.TODO())
+	live.Start(context.TODO())
+	live.Join(roomID)
 	scanner(socket)
 }
 
