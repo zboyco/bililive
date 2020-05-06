@@ -115,6 +115,7 @@ func (live *Live) Remove(roomIDs ...int) error {
 	for _, roomID := range roomIDs {
 		if room, exist := live.room[roomID]; exist {
 			room.cancel()
+			delete(live.room, roomID)
 		}
 	}
 	return nil
