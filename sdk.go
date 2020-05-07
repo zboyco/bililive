@@ -45,13 +45,13 @@ func (live *Live) Start(ctx context.Context) {
 	live.ctx = ctx
 
 	rand.Seed(time.Now().Unix())
-	if live.AnalysisRoutineNum == 0 {
+	if live.AnalysisRoutineNum <= 0 {
 		live.AnalysisRoutineNum = 1
 	}
 
 	live.room = make(map[int]*liveRoom)
-	live.chSocketMessage = make(chan *socketMessage, 10)
-	live.chOperation = make(chan *operateInfo, 100)
+	live.chSocketMessage = make(chan *socketMessage, 30)
+	live.chOperation = make(chan *operateInfo, 300)
 	if live.StormFilter && live.ReceiveMsg != nil {
 		live.storming = make(map[int]bool)
 		live.stormContent = make(map[int]map[int64]string)
@@ -97,8 +97,7 @@ func (live *Live) Join(roomIDs ...int) error {
 			cancel: cancel,
 		}
 		live.room[roomID] = room
-		room.conn = <-room.createConnect()
-		room.enterRoom()
+		room.enter()
 		go room.heartBeat(nextCtx)
 		live.stormContent[roomID] = make(map[int64]string)
 		go room.receive(nextCtx, live.chSocketMessage)
@@ -199,6 +198,7 @@ analysis:
 			}
 			switch result.CMD {
 			case "LIVE": // 直播开始
+				log.Println(string(buffer.Buffer))
 				if live.Live != nil {
 					live.Live(buffer.RoomID)
 				}
@@ -302,7 +302,6 @@ analysis:
 					live.RoomRank(buffer.RoomID, m)
 				}
 			case "SPECIAL_GIFT": // 特殊礼物
-				//log.Println(string(buffer.Buffer))
 				m := &SpecialGiftModel{}
 				json.Unmarshal(temp, m)
 				if m.Storm.Action == "start" {
@@ -343,7 +342,7 @@ analysis:
 			case "ROUND": // 未知
 				fallthrough
 			case "REFRESH": // 刷新
-				log.Println(string(buffer.Buffer))
+				fallthrough
 			case "ACTIVITY_BANNER_UPDATE_V2": //
 				fallthrough
 			case "ANCHOR_LOT_CHECKSTATUS": //
@@ -402,44 +401,45 @@ func (room *liveRoom) findServer() error {
 	return nil
 }
 
-func (room *liveRoom) createConnect() <-chan *net.TCPConn {
-	result := make(chan *net.TCPConn)
-	go func() {
-		defer close(result)
-
-		for {
-			if room.hostServerList == nil || len(room.hostServerList) == room.currentServerIndex {
+func (room *liveRoom) createConnect() {
+	for {
+		if room.hostServerList == nil || len(room.hostServerList) == room.currentServerIndex {
+			for {
 				err := room.findServer()
 				if err != nil {
-					log.Panic(err)
-				}
-			}
-
-			counter := 0
-			for {
-				log.Println("尝试创建连接：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
-				conn, err := connect(room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
-				if err != nil {
-					log.Println("connect err:", err)
-					if counter == 3 {
-						room.currentServerIndex++
-						break
-					}
-					time.Sleep(3 * time.Second)
-					counter++
+					log.Println("find server err:", err)
+					time.Sleep(500 * time.Millisecond)
 					continue
 				}
-				result <- conn
-				log.Println("连接创建成功：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
-				room.currentServerIndex++
-				return
+				break
 			}
 		}
-	}()
-	return result
+
+		counter := 0
+		for {
+			log.Println("尝试创建连接：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
+			conn, err := connect(room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
+			if err != nil {
+				log.Println("connect err:", err)
+				if counter == 3 {
+					room.currentServerIndex++
+					break
+				}
+				time.Sleep(1 * time.Second)
+				counter++
+				continue
+			}
+			room.conn = conn
+			log.Println("连接创建成功：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
+			room.currentServerIndex++
+			return
+		}
+	}
 }
 
-func (room *liveRoom) enterRoom() {
+func (room *liveRoom) enter() {
+	room.createConnect()
+
 	enterInfo := &enterInfo{
 		RoomID:    room.realRoomID,
 		UserID:    9999999999 + rand.Int63(),
@@ -493,8 +493,7 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 				log.Panic(err)
 			}
 			log.Println("read err:", err)
-			room.conn = <-room.createConnect()
-			room.enterRoom()
+			room.enter()
 			counter++
 			continue
 		}
@@ -509,8 +508,7 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 				log.Println("数据包长度:", head.Length)
 				log.Panic("数据包长度不正确")
 			}
-			room.conn = <-room.createConnect()
-			room.enterRoom()
+			room.enter()
 			counter++
 			continue
 		}
@@ -522,8 +520,7 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 				log.Panic(err)
 			}
 			log.Println("read err:", err)
-			room.conn = <-room.createConnect()
-			room.enterRoom()
+			room.enter()
 			counter++
 			continue
 		}
