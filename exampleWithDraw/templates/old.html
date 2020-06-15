@@ -6,25 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Document</title>
-    <link rel="stylesheet" href="/static/css/index2.css" type="text/css"/>
+    <link rel="stylesheet" href="/static/css/index.css" type="text/css" />
 </head>
 
 <body>
-<div>
-    <div id="bg" class="bg bg0"></div>
-    <div id="startBtn" class="btn-start" onclick="start()"></div>
-    <div id="stopBtn" class="btn-stop" onclick="stop()"></div>
-    <div id="pull" class="pull" onclick="draw()"></div>
-    <input id="point" type="text" class="point" value=""/>
-    <div class="point-commit" onclick="setPoint()"></div>
-    <div id="winner" class="window">等待抽奖</div>
-    <div id="list" class="list"></div>
-</div>
+    <div>
+        <div class="bg"></div>
+        <div id="startBtn" class="btn-start" onclick="start()"></div>
+        <div id="stopBtn" class="btn-stop" onclick="stop()"></div>
+        <div id="pull" class="pull" onclick="draw()"></div>
+        <input id="point" type="text" class="point" value="" />
+        <div class="point-commit" onclick="setPoint()"></div>
+        <div id="winner" class="window">等待抽奖</div>
+        <div id="list" class="list"></div>
+    </div>
 </body>
 <script>
     let timer = null, run = false, members = [];
 
-    const bg = document.querySelector("#bg");
     const point = document.querySelector("#point");
     const startBtn = document.querySelector("#startBtn");
     const stopBtn = document.querySelector("#stopBtn");
@@ -36,7 +35,7 @@
         ajax({
             url: "/api/set",              //请求地址
             type: "GET",                       //请求方式
-            data: {"point": point.value},        //请求参数
+            data: { "point": point.value },        //请求参数
             dataType: "json",
             success: function (response, xml) {
                 alert("设置成功!")
@@ -110,18 +109,6 @@
         });
     }
 
-    var bgFlag = 0, bgTimeout = 800;
-
-    function normalBG() {
-        setTimeout(function () {
-            bgFlag = (bgFlag + 1) % 2;
-            bg.className = "bg bg" + bgFlag;
-            normalBG()
-        }, bgTimeout)
-    }
-
-    normalBG();
-
     function draw() {
         pull.className += " down";
         setTimeout(() => {
@@ -137,11 +124,6 @@
 
         let count = 100, delay = 250;
 
-        var bgTimer = setInterval(function () {
-            if (bgTimeout > 100) {
-                bgTimeout -= 10;
-            }
-        }, 80);
 
         function drawTimer() {
             setTimeout(() => {
@@ -157,13 +139,8 @@
                 if (count > 0) {
                     drawTimer();
                 }
-                if (count <= 0) {
-                    clearInterval(bgTimer);
-                    bgTimeout = 800;
-                }
             }, delay);
         }
-
         drawTimer();
     }
 
@@ -203,7 +180,6 @@
             xhr.send(params);
         }
     }
-
     //格式化参数
     function formatParams(data) {
         var arr = [];

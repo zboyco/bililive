@@ -33,7 +33,8 @@ func main() {
 	var run bool
 	go startWeb(m, &point, &run)
 	live := &bililive.Live{
-		Debug:  false,
+		Debug:       false,
+		StormFilter: true, // 过滤节奏风暴弹幕
 		ReceiveMsg: func(roomID int, msg *bililive.MsgModel) {
 			// log.Printf("【弹幕】%v:  %v", msg.UserName, msg.Content)
 			if run && point != "" && msg.Content == point {
@@ -45,8 +46,8 @@ func main() {
 		},
 	}
 	fmt.Println()
-	go open("http://127.0.0.1:8080")
-	fmt.Println("浏览器输入 http://127.0.0.1:8080 访问...")
+	go open("http://127.0.0.1:8080/html")
+	fmt.Println("浏览器输入 http://127.0.0.1:8080/html 访问...")
 	fmt.Println()
 	live.Start(context.TODO())
 	live.Join(roomID)
