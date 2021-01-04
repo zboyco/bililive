@@ -80,13 +80,13 @@ func (live *Live) Wait() {
 
 // Join 添加房间
 func (live *Live) Join(roomIDs ...int) error {
-	if roomIDs == nil || len(roomIDs) == 0 {
+	if len(roomIDs) == 0 {
 		return errors.New("没有要添加的房间")
 	}
 
 	for _, roomID := range roomIDs {
 		if _, exist := live.room[roomID]; exist {
-			return errors.New(fmt.Sprintf("房间 %d 已存在", roomID))
+			return fmt.Errorf("房间 %d 已存在", roomID)
 		}
 	}
 	for _, roomID := range roomIDs {
@@ -107,7 +107,7 @@ func (live *Live) Join(roomIDs ...int) error {
 
 // Remove 移出房间
 func (live *Live) Remove(roomIDs ...int) error {
-	if roomIDs == nil || len(roomIDs) == 0 {
+	if len(roomIDs) == 0 {
 		return errors.New("没有要移出的房间")
 	}
 
@@ -138,7 +138,7 @@ func (live *Live) split(ctx context.Context) {
 			}
 
 			headerBufferReader = bytes.NewReader(message.body[:WS_PACKAGE_HEADER_TOTAL_LENGTH])
-			binary.Read(headerBufferReader, binary.BigEndian, &head)
+			_ = binary.Read(headerBufferReader, binary.BigEndian, &head)
 			payloadBuffer = message.body[WS_PACKAGE_HEADER_TOTAL_LENGTH:head.Length]
 			message.body = message.body[head.Length:]
 
@@ -214,25 +214,25 @@ analysis:
 			case "SYS_MSG": // 系统消息
 				if live.SysMessage != nil {
 					m := &SysMsgModel{}
-					json.Unmarshal(buffer.Buffer, m)
+					_ = json.Unmarshal(buffer.Buffer, m)
 					live.SysMessage(buffer.RoomID, m)
 				}
 			case "ROOM_CHANGE": // 房间信息变更
 				if live.RoomChange != nil {
 					m := &RoomChangeModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.RoomChange(buffer.RoomID, m)
 				}
 			case "WELCOME": // 用户进入
 				if live.UserEnter != nil {
 					m := &UserEnterModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.UserEnter(buffer.RoomID, m)
 				}
 			case "WELCOME_GUARD": // 舰长进入
 				if live.GuardEnter != nil {
 					m := &GuardEnterModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.GuardEnter(buffer.RoomID, m)
 				}
 			case "DANMU_MSG": // 弹幕
@@ -257,7 +257,7 @@ analysis:
 						Content:   msgContent,
 						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
 					}
-					if medalInfo != nil && len(medalInfo) >= 4 {
+					if len(medalInfo) >= 4 {
 						m.MedalLevel = int(medalInfo[0].(float64))
 						m.MedalName = medalInfo[1].(string)
 						m.MedalUpName = medalInfo[2].(string)
@@ -268,42 +268,42 @@ analysis:
 			case "SEND_GIFT": // 礼物通知
 				if live.ReceiveGift != nil {
 					m := &GiftModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.ReceiveGift(buffer.RoomID, m)
 				}
 			case "COMBO_SEND": // 连击
 				if live.GiftComboSend != nil {
 					m := &ComboSendModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.GiftComboSend(buffer.RoomID, m)
 				}
 			case "COMBO_END": // 连击结束
 				if live.GiftComboEnd != nil {
 					m := &ComboEndModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.GiftComboEnd(buffer.RoomID, m)
 				}
 			case "GUARD_BUY": // 上船
 				if live.GuardBuy != nil {
 					m := &GuardBuyModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.GuardBuy(buffer.RoomID, m)
 				}
 			case "ROOM_REAL_TIME_MESSAGE_UPDATE": // 粉丝数更新
 				if live.FansUpdate != nil {
 					m := &FansUpdateModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.FansUpdate(buffer.RoomID, m)
 				}
 			case "ROOM_RANK": // 小时榜
 				if live.RoomRank != nil {
 					m := &RankModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.RoomRank(buffer.RoomID, m)
 				}
 			case "SPECIAL_GIFT": // 特殊礼物
 				m := &SpecialGiftModel{}
-				json.Unmarshal(temp, m)
+				_ = json.Unmarshal(temp, m)
 				if m.Storm.Action == "start" {
 					m.Storm.ID, _ = strconv.ParseInt(m.Storm.TempID.(string), 10, 64)
 				}
@@ -328,7 +328,7 @@ analysis:
 			case "SUPER_CHAT_MESSAGE": // 醒目留言
 				if live.SuperChatMessage != nil {
 					m := &SuperChatMessageModel{}
-					json.Unmarshal(temp, m)
+					_ = json.Unmarshal(temp, m)
 					live.SuperChatMessage(buffer.RoomID, m)
 				}
 			case "SUPER_CHAT_MESSAGE_JPN":
@@ -381,7 +381,7 @@ func (room *liveRoom) findServer() error {
 	}
 
 	roomInfo := roomInfoResult{}
-	json.Unmarshal(resRoom, &roomInfo)
+	_ = json.Unmarshal(resRoom, &roomInfo)
 	if roomInfo.Code != 0 {
 		return errors.New("房间不正确")
 	}
@@ -392,7 +392,7 @@ func (room *liveRoom) findServer() error {
 	}
 
 	danmuConfig := danmuConfigResult{}
-	json.Unmarshal(resDanmuConfig, &danmuConfig)
+	_ = json.Unmarshal(resDanmuConfig, &danmuConfig)
 	room.server = danmuConfig.Data.Host
 	room.port = danmuConfig.Data.Port
 	room.hostServerList = danmuConfig.Data.HostServerList
@@ -478,7 +478,7 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 	// headerBufferReader
 	var headerBufferReader *bytes.Reader
 	// 包体
-	messageBody := make([]byte, 0)
+	var messageBody []byte
 	counter := 0
 	for {
 		select {
@@ -500,7 +500,7 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 
 		var head messageHeader
 		headerBufferReader = bytes.NewReader(headerBuffer)
-		binary.Read(headerBufferReader, binary.BigEndian, &head)
+		_ = binary.Read(headerBufferReader, binary.BigEndian, &head)
 
 		if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
 			if counter >= 10 {

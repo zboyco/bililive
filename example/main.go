@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/zboyco/bililive"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
+
+	"github.com/zboyco/bililive"
 )
 
 func main() {
@@ -56,7 +57,7 @@ func main() {
 				coin = "金瓜子"
 				log.Printf("【礼物通知】%s(%v):  %s(%d) * %d [价值 %d个%s]", gift.UserName, time.Unix(gift.Timestamp, 0), gift.GiftName, gift.GiftID, gift.Num, gift.Price*gift.Num, coin)
 			}
-			//log.Printf("【礼物通知】%s:  %s(%d) * %d [价值 %d个%s]", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price*gift.Num, coin)
+			log.Printf("【礼物通知】%s:  %s(%d) * %d [价值 %d个%s]", gift.UserName, gift.GiftName, gift.GiftID, gift.Num, gift.Price*gift.Num, coin)
 		},
 		GiftComboSend: func(roomID int, m *bililive.ComboSendModel) {
 			log.Printf("【礼物连击】%v 赠送 %v 连击 %v 次", m.UserName, m.GiftName, m.ComboNum)
@@ -83,6 +84,6 @@ func main() {
 		},
 	}
 	live.Start(context.Background())
-	live.Join(*roomID)
+	_ = live.Join(*roomID)
 	live.Wait()
 }

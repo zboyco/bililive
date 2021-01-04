@@ -35,5 +35,5 @@ func startWeb(m *memberModel, point *string, run *bool) {
 		})
 	})
 
-	r.Run()
+	_ = r.Run()
 }

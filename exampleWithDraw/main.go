@@ -46,11 +46,11 @@ func main() {
 		},
 	}
 	fmt.Println()
-	go open("http://127.0.0.1:8080/html")
+	_ = open("http://127.0.0.1:8080/html")
 	fmt.Println("浏览器输入 http://127.0.0.1:8080/html 访问...")
 	fmt.Println()
 	live.Start(context.TODO())
-	live.Join(roomID)
+	_ = live.Join(roomID)
 	live.Wait()
 }
 

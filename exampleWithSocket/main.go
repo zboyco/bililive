@@ -56,8 +56,8 @@ func main() {
 			}
 			body, _ := json.Marshal(&m)
 			buff := bytes.NewBuffer([]byte{})
-			binary.Write(buff, binary.BigEndian, int16(len(body)))
-			binary.Write(buff, binary.LittleEndian, body)
+			_ = binary.Write(buff, binary.BigEndian, int16(len(body)))
+			_ = binary.Write(buff, binary.LittleEndian, body)
 			socket.sendTCP(buff.Bytes())
 		},
 		ReceivePopularValue: func(roomID int, value uint32) {
@@ -65,7 +65,7 @@ func main() {
 		},
 	}
 	live.Start(context.TODO())
-	live.Join(roomID)
+	_ = live.Join(roomID)
 	scanner(socket)
 }
 
@@ -170,8 +170,8 @@ func scanner(s *socket) {
 			}
 			body, _ := json.Marshal(&m)
 			buff := bytes.NewBuffer([]byte{})
-			binary.Write(buff, binary.BigEndian, int16(len(body)))
-			binary.Write(buff, binary.LittleEndian, body)
+			_ = binary.Write(buff, binary.BigEndian, int16(len(body)))
+			_ = binary.Write(buff, binary.LittleEndian, body)
 			s.sendTCP(buff.Bytes())
 		}
 	}
