@@ -52,11 +52,8 @@ func (live *Live) Start(ctx context.Context) {
 	live.room = make(map[int]*liveRoom)
 	live.chSocketMessage = make(chan *socketMessage, 30)
 	live.chOperation = make(chan *operateInfo, 300)
-	if live.StormFilter && live.ReceiveMsg != nil {
-		live.storming = make(map[int]bool)
-		live.stormContent = make(map[int]map[int64]string)
-	}
-
+	live.storming = make(map[int]bool)
+	live.stormContent = make(map[int]map[int64]string)
 	live.wg = sync.WaitGroup{}
 
 	for i := 0; i < live.AnalysisRoutineNum; i++ {
@@ -180,6 +177,10 @@ analysis:
 				log.Println("CONNECT_SUCCESS", string(buffer.Buffer))
 			}
 		case WS_OP_MESSAGE:
+			if live.Raw != nil {
+				live.Raw(buffer.RoomID, buffer.Buffer)
+				continue
+			}
 			result := cmdModel{}
 			err := json.Unmarshal(buffer.Buffer, &result)
 			if err != nil {
