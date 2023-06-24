@@ -383,7 +383,7 @@ func (room *liveRoom) findServer() error {
 
 	roomInfo := roomInfoResult{}
 	_ = json.Unmarshal(resRoom, &roomInfo)
-	if roomInfo.Code != 0 {
+	if roomInfo.Code != 0 || roomInfo.Data == nil {
 		return errors.New("房间不正确")
 	}
 	room.realRoomID = roomInfo.Data.RoomID
