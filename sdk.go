@@ -394,6 +394,9 @@ func (room *liveRoom) findServer() error {
 
 	danmuConfig := danmuConfigResult{}
 	_ = json.Unmarshal(resDanmuConfig, &danmuConfig)
+	if danmuConfig.Data == nil {
+		return errors.New("获取弹幕服务器失败")
+	}
 	room.server = danmuConfig.Data.Host
 	room.port = danmuConfig.Data.Port
 	room.hostServerList = danmuConfig.Data.HostServerList
