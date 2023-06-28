@@ -121,6 +121,16 @@ func (live *Live) Remove(roomIDs ...int) error {
 	return nil
 }
 
+func (live *Live) Rooms() []int {
+	live.lock.Lock()
+	defer live.lock.Unlock()
+	var roomIDs []int
+	for roomID := range live.room {
+		roomIDs = append(roomIDs, roomID)
+	}
+	return roomIDs
+}
+
 // 拆分数据
 func (live *Live) split(ctx context.Context) {
 	var (
