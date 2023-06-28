@@ -55,6 +55,7 @@ func (live *Live) Start(ctx context.Context) {
 	live.storming = make(map[int]bool)
 	live.stormContent = make(map[int]map[int64]string)
 	live.wg = sync.WaitGroup{}
+	live.lock = sync.Mutex{}
 
 	for i := 0; i < live.AnalysisRoutineNum; i++ {
 		live.wg.Add(1)
@@ -80,12 +81,14 @@ func (live *Live) Join(roomIDs ...int) error {
 	if len(roomIDs) == 0 {
 		return errors.New("没有要添加的房间")
 	}
-
+	live.lock.Lock()
+	defer live.lock.Unlock()
 	for _, roomID := range roomIDs {
 		if _, exist := live.room[roomID]; exist {
 			return fmt.Errorf("房间 %d 已存在", roomID)
 		}
 	}
+
 	for _, roomID := range roomIDs {
 		nextCtx, cancel := context.WithCancel(live.ctx)
 
@@ -107,7 +110,8 @@ func (live *Live) Remove(roomIDs ...int) error {
 	if len(roomIDs) == 0 {
 		return errors.New("没有要移出的房间")
 	}
-
+	live.lock.Lock()
+	defer live.lock.Unlock()
 	for _, roomID := range roomIDs {
 		if room, exist := live.room[roomID]; exist {
 			room.cancel()

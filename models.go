@@ -39,6 +39,7 @@ type Live struct {
 	stormContent map[int]map[int64]string // 节奏风暴内容
 
 	room map[int]*liveRoom // 直播间
+	lock sync.Mutex
 }
 
 type socketMessage struct {
