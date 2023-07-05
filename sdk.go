@@ -457,7 +457,6 @@ func (room *liveRoom) createConnect() {
 
 func (room *liveRoom) enter() {
 	room.createConnect()
-
 	enterInfo := &enterInfo{
 		RoomID:    room.realRoomID,
 		UserID:    9999999999 + rand.Int63(),
@@ -467,10 +466,10 @@ func (room *liveRoom) enter() {
 		Type:      2,
 		Key:       room.token,
 	}
-
 	payload, err := json.Marshal(enterInfo)
 	if err != nil {
-		log.Panic(err)
+		log.Println(err)
+		return
 	}
 	room.sendData(WS_OP_USER_AUTHENTICATION, payload)
 }
@@ -507,24 +506,19 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 
 		_, err := io.ReadFull(room.conn, headerBuffer)
 		if err != nil {
-			if counter >= 10 {
-				log.Panic(err)
-			}
-			log.Println("read err:", err)
+			log.Println("ReadFull: error", err)
 			room.enter()
 			counter++
 			continue
 		}
-
 		var head messageHeader
 		headerBufferReader = bytes.NewReader(headerBuffer)
 		_ = binary.Read(headerBufferReader, binary.BigEndian, &head)
-
 		if head.Length < WS_PACKAGE_HEADER_TOTAL_LENGTH {
 			if counter >= 10 {
 				log.Println("***************协议失败***************")
 				log.Println("数据包长度:", head.Length)
-				log.Panic("数据包长度不正确")
+				log.Println("数据包长度不正确")
 			}
 			room.enter()
 			counter++
@@ -534,17 +528,12 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 		payloadBuffer := make([]byte, head.Length-WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err = io.ReadFull(room.conn, payloadBuffer)
 		if err != nil {
-			if counter >= 10 {
-				log.Panic(err)
-			}
-			log.Println("read err:", err)
+			log.Println("ReadFull err:", err)
 			room.enter()
 			counter++
 			continue
 		}
-
 		messageBody = append(headerBuffer, payloadBuffer...)
-
 		chSocketMessage <- &socketMessage{
 			roomID: room.roomID,
 			body:   messageBody,
