@@ -130,11 +130,39 @@ type SysMsgModel struct {
 
 // UserEnterModel 用户进入模型
 type UserEnterModel struct {
-	UserID   int64  `json:"uid"`
-	UserName string `json:"uname"`
-	IsAdmin  bool   `json:"is_admin"`
-	VIP      int    `json:"vip"`
-	SVIP     int    `json:"svip"`
+	UserID       int64  `json:"uid"`
+	UserName     string `json:"uname"`
+	IsAdmin      bool   `json:"is_admin"`
+	VIP          int    `json:"vip"`
+	SVIP         int    `json:"svip"`
+	CopyWriting  string `json:"copy_writing_v2"`
+	Contribution struct {
+		Grade int `json:"grade"`
+	} `json:"contribution"`
+	WealthyInfo struct {
+		CurScore         int    `json:"cur_score"`
+		DmIconKey        string `json:"dm_icon_key"`
+		Level            int    `json:"level"`
+		LevelTotalScore  int    `json:"level_total_score"`
+		Status           int    `json:"status"`
+		Uid              int    `json:"uid"`
+		UpgradeNeedScore int    `json:"upgrade_need_score"`
+	} `json:"wealthy_info"`
+	FansMedal struct {
+		AnchorRoomid     int    `json:"anchor_roomid"`
+		GuardLevel       int    `json:"guard_level"`
+		IconId           int    `json:"icon_id"`
+		IsLighted        int    `json:"is_lighted"`
+		MedalColor       int    `json:"medal_color"`
+		MedalColorBorder int    `json:"medal_color_border"`
+		MedalColorEnd    int    `json:"medal_color_end"`
+		MedalColorStart  int    `json:"medal_color_start"`
+		MedalLevel       int    `json:"medal_level"`
+		MedalName        string `json:"medal_name"`
+		Score            int    `json:"score"`
+		Special          string `json:"special"`
+		TargetId         int    `json:"target_id"`
+	} `json:"fans_medal"`
 }
 
 // GuardEnterModel 舰长进入模型
@@ -160,15 +188,16 @@ type GiftModel struct {
 
 // MsgModel 消息
 type MsgModel struct {
-	UserID      int64  // 用户ID
-	UserName    string // 用户昵称
-	UserLevel   int    // 用户等级
-	MedalName   string // 勋章名
-	MedalUpName string // 勋章主播名称
-	MedalRoomID int64  // 勋章直播间ID
-	MedalLevel  int    // 勋章等级
-	Content     string // 内容
-	Timestamp   int64  // 时间
+	UserID       int64  // 用户ID
+	UserName     string // 用户昵称
+	UserLevel    int    // 用户等级
+	MedalName    string // 勋章名
+	MedalUpName  string // 勋章主播名称
+	MedalRoomID  int64  // 勋章直播间ID
+	MedalLevel   int    // 勋章等级
+	Content      string // 内容
+	Timestamp    int64  // 时间
+	WealthyLevel int    // 财富等级
 }
 
 // ComboSendModel 连击模型

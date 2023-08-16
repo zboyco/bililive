@@ -8,11 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/spf13/cast"
 	"io"
 	"log"
 	"math/rand"
 	"net"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -39,6 +42,8 @@ const (
 	WS_AUTH_OK                 int32 = 0
 	WS_AUTH_TOKEN_ERROR        int32 = -101
 )
+
+var ret = regexp.MustCompile("<%(.*?)%>")
 
 // Start 开始接收
 func (live *Live) Start(ctx context.Context) {
@@ -140,32 +145,30 @@ func (live *Live) split(ctx context.Context) {
 		payloadBuffer      []byte
 	)
 	for {
-		message = <-live.chSocketMessage
-		for len(message.body) > 0 {
-			select {
-			case <-ctx.Done():
-				return
-			default:
+		select {
+		case <-ctx.Done():
+			return
+		case message = <-live.chSocketMessage:
+			for len(message.body) > 0 {
+				headerBufferReader = bytes.NewReader(message.body[:WS_PACKAGE_HEADER_TOTAL_LENGTH])
+				_ = binary.Read(headerBufferReader, binary.BigEndian, &head)
+				payloadBuffer = message.body[WS_PACKAGE_HEADER_TOTAL_LENGTH:head.Length]
+				message.body = message.body[head.Length:]
+				if head.Length == WS_PACKAGE_HEADER_TOTAL_LENGTH {
+					continue
+				}
+				if head.ProtocolVersion == WS_BODY_PROTOCOL_VERSION_DEFLATE {
+					message.body = doZlibUnCompress(payloadBuffer)
+					continue
+				}
+				if live.Debug {
+					log.Println(string(payloadBuffer))
+				}
+				live.chOperation <- &operateInfo{RoomID: message.roomID, Operation: head.Operation, Buffer: payloadBuffer}
 			}
-
-			headerBufferReader = bytes.NewReader(message.body[:WS_PACKAGE_HEADER_TOTAL_LENGTH])
-			_ = binary.Read(headerBufferReader, binary.BigEndian, &head)
-			payloadBuffer = message.body[WS_PACKAGE_HEADER_TOTAL_LENGTH:head.Length]
-			message.body = message.body[head.Length:]
-
-			if head.Length == WS_PACKAGE_HEADER_TOTAL_LENGTH {
-				continue
-			}
-
-			if head.ProtocolVersion == WS_BODY_PROTOCOL_VERSION_DEFLATE {
-				message.body = doZlibUnCompress(payloadBuffer)
-				continue
-			}
-			if live.Debug {
-				log.Println(string(payloadBuffer))
-			}
-			live.chOperation <- &operateInfo{RoomID: message.roomID, Operation: head.Operation, Buffer: payloadBuffer}
+		default:
 		}
+
 	}
 }
 
@@ -176,215 +179,226 @@ analysis:
 		select {
 		case <-ctx.Done():
 			return
-		default:
-		}
-
-		buffer := <-live.chOperation
-		switch buffer.Operation {
-		case WS_OP_HEARTBEAT_REPLY:
-			if live.ReceivePopularValue != nil {
-				m := binary.BigEndian.Uint32(buffer.Buffer)
-				live.ReceivePopularValue(buffer.RoomID, m)
-			}
-		case WS_OP_CONNECT_SUCCESS:
-			if live.Debug {
-				log.Println("CONNECT_SUCCESS", string(buffer.Buffer))
-			}
-		case WS_OP_MESSAGE:
-			if live.Raw != nil {
-				live.Raw(buffer.RoomID, buffer.Buffer)
-				continue
-			}
-			result := cmdModel{}
-			err := json.Unmarshal(buffer.Buffer, &result)
-			if err != nil {
+		case buffer := <-live.chOperation:
+			switch buffer.Operation {
+			case WS_OP_HEARTBEAT_REPLY:
+				if live.ReceivePopularValue != nil {
+					m := binary.BigEndian.Uint32(buffer.Buffer)
+					live.ReceivePopularValue(buffer.RoomID, m)
+				}
+			case WS_OP_CONNECT_SUCCESS:
 				if live.Debug {
-					log.Println(err)
+					log.Println("CONNECT_SUCCESS", string(buffer.Buffer))
+				}
+			case WS_OP_MESSAGE:
+				if live.Raw != nil {
+					live.Raw(buffer.RoomID, buffer.Buffer)
+					continue
+				}
+				result := cmdModel{}
+				err := json.Unmarshal(buffer.Buffer, &result)
+				if err != nil {
+					if live.Debug {
+						log.Println(err)
+						log.Println(string(buffer.Buffer))
+					}
+					continue
+				}
+				temp, err := json.Marshal(result.Data)
+				if err != nil {
+					if live.Debug {
+						log.Println(err)
+					}
+					continue
+				}
+				switch result.CMD {
+				case "LIVE": // 直播开始
 					log.Println(string(buffer.Buffer))
-				}
-				continue
-			}
-			temp, err := json.Marshal(result.Data)
-			if err != nil {
-				if live.Debug {
-					log.Println(err)
-				}
-				continue
-			}
-			switch result.CMD {
-			case "LIVE": // 直播开始
-				log.Println(string(buffer.Buffer))
-				if live.Live != nil {
-					live.Live(buffer.RoomID)
-				}
-			case "CLOSE": // 关闭
-				fallthrough
-			case "PREPARING": // 准备
-				fallthrough
-			case "END": // 结束
-				log.Println(string(buffer.Buffer))
-				if live.End != nil {
-					live.End(buffer.RoomID)
-				}
-			case "SYS_MSG": // 系统消息
-				if live.SysMessage != nil {
-					m := &SysMsgModel{}
-					_ = json.Unmarshal(buffer.Buffer, m)
-					live.SysMessage(buffer.RoomID, m)
-				}
-			case "ROOM_CHANGE": // 房间信息变更
-				if live.RoomChange != nil {
-					m := &RoomChangeModel{}
+					if live.Live != nil {
+						live.Live(buffer.RoomID)
+					}
+				case "CLOSE": // 关闭
+					fallthrough
+				case "PREPARING": // 准备
+					fallthrough
+				case "END": // 结束
+					log.Println(string(buffer.Buffer))
+					if live.End != nil {
+						live.End(buffer.RoomID)
+					}
+				case "SYS_MSG": // 系统消息
+					if live.SysMessage != nil {
+						m := &SysMsgModel{}
+						_ = json.Unmarshal(buffer.Buffer, m)
+						live.SysMessage(buffer.RoomID, m)
+					}
+				case "ROOM_CHANGE": // 房间信息变更
+					if live.RoomChange != nil {
+						m := &RoomChangeModel{}
+						_ = json.Unmarshal(temp, m)
+						live.RoomChange(buffer.RoomID, m)
+					}
+				case "WELCOME": // 用户进入
+					if live.UserEnter != nil {
+						m := &UserEnterModel{}
+						_ = json.Unmarshal(temp, m)
+						live.UserEnter(buffer.RoomID, m)
+					}
+				case "WELCOME_GUARD": // 舰长进入
+					if live.GuardEnter != nil {
+						m := &GuardEnterModel{}
+						_ = json.Unmarshal(temp, m)
+						live.GuardEnter(buffer.RoomID, m)
+					}
+				case "DANMU_MSG": // 弹幕
+					if live.ReceiveMsg != nil {
+						msgContent := result.Info[1].(string)
+						if live.StormFilter && live.storming[buffer.RoomID] {
+							for _, value := range live.stormContent[buffer.RoomID] {
+								if msgContent == value {
+									continue analysis
+								}
+							}
+						}
+						userInfo := result.Info[2].([]interface{})
+						medalInfo := result.Info[3].([]interface{})
+						m := &MsgModel{
+							UserID:    int64(userInfo[0].(float64)),
+							UserName:  userInfo[1].(string),
+							UserLevel: int(result.Info[4].([]interface{})[0].(float64)),
+							Content:   msgContent,
+							Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
+						}
+						if len(medalInfo) >= 4 {
+							m.MedalLevel = int(medalInfo[0].(float64))
+							m.MedalName = medalInfo[1].(string)
+							m.MedalUpName = medalInfo[2].(string)
+							m.MedalRoomID = int64(medalInfo[3].(float64))
+						}
+						if len(result.Info) > 16 {
+							if levelInfo, ok := result.Info[16].([]interface{}); ok && len(levelInfo) > 0 {
+								m.WealthyLevel = cast.ToInt(levelInfo[0])
+							}
+						}
+						live.ReceiveMsg(buffer.RoomID, m)
+					}
+				case "SEND_GIFT": // 礼物通知
+					if live.ReceiveGift != nil {
+						m := &GiftModel{}
+						_ = json.Unmarshal(temp, m)
+						live.ReceiveGift(buffer.RoomID, m)
+					}
+				case "COMBO_SEND": // 连击
+					if live.GiftComboSend != nil {
+						m := &ComboSendModel{}
+						_ = json.Unmarshal(temp, m)
+						live.GiftComboSend(buffer.RoomID, m)
+					}
+				case "COMBO_END": // 连击结束
+					if live.GiftComboEnd != nil {
+						m := &ComboEndModel{}
+						_ = json.Unmarshal(temp, m)
+						live.GiftComboEnd(buffer.RoomID, m)
+					}
+				case "GUARD_BUY": // 上船
+					if live.GuardBuy != nil {
+						m := &GuardBuyModel{}
+						_ = json.Unmarshal(temp, m)
+						live.GuardBuy(buffer.RoomID, m)
+					}
+				case "ROOM_REAL_TIME_MESSAGE_UPDATE": // 粉丝数更新
+					if live.FansUpdate != nil {
+						m := &FansUpdateModel{}
+						_ = json.Unmarshal(temp, m)
+						live.FansUpdate(buffer.RoomID, m)
+					}
+				case "ROOM_RANK": // 小时榜
+					if live.RoomRank != nil {
+						m := &RankModel{}
+						_ = json.Unmarshal(temp, m)
+						live.RoomRank(buffer.RoomID, m)
+					}
+				case "SPECIAL_GIFT": // 特殊礼物
+					m := &SpecialGiftModel{}
 					_ = json.Unmarshal(temp, m)
-					live.RoomChange(buffer.RoomID, m)
-				}
-			case "WELCOME": // 用户进入
-				if live.UserEnter != nil {
+					if m.Storm.Action == "start" {
+						m.Storm.ID, _ = strconv.ParseInt(m.Storm.TempID.(string), 10, 64)
+					}
+					if m.Storm.Action == "end" {
+						m.Storm.ID = int64(m.Storm.TempID.(float64))
+					}
+					if live.StormFilter && live.ReceiveMsg != nil {
+						if m.Storm.Action == "start" {
+							live.storming[buffer.RoomID] = true
+							live.stormContent[buffer.RoomID][m.Storm.ID] = m.Storm.Content
+							//log.Println("添加过滤弹幕：", m.Storm.ID, m.Storm.Content)
+						}
+						if m.Storm.Action == "end" {
+							delete(live.stormContent[buffer.RoomID], m.Storm.ID)
+							live.storming[buffer.RoomID] = len(live.stormContent) > 0
+							//log.Println("移除过滤弹幕：", m.Storm.ID, live.storming)
+						}
+					}
+					if live.SpecialGift != nil {
+						live.SpecialGift(buffer.RoomID, m)
+					}
+				case "SUPER_CHAT_MESSAGE": // 醒目留言
+					if live.SuperChatMessage != nil {
+						m := &SuperChatMessageModel{}
+						_ = json.Unmarshal(temp, m)
+						live.SuperChatMessage(buffer.RoomID, m)
+					}
+				case "SUPER_CHAT_MESSAGE_JPN":
+					if live.Debug {
+						log.Println(string(buffer.Buffer))
+					}
+				case "ENTRY_EFFECT": // 进入效果
+					m := &UserEnterModel{}
+					_ = json.Unmarshal(temp, m)
+					tokens := ret.FindStringSubmatch(m.CopyWriting)
+					if len(tokens) > 1 {
+						m.UserName = strings.TrimSpace(tokens[1])
+					}
+					live.UserEnter(buffer.RoomID, m)
+				case "INTERACT_WORD": // 观众进入
 					m := &UserEnterModel{}
 					_ = json.Unmarshal(temp, m)
 					live.UserEnter(buffer.RoomID, m)
-				}
-			case "WELCOME_GUARD": // 舰长进入
-				if live.GuardEnter != nil {
-					m := &GuardEnterModel{}
-					_ = json.Unmarshal(temp, m)
-					live.GuardEnter(buffer.RoomID, m)
-				}
-			case "DANMU_MSG": // 弹幕
-				if live.ReceiveMsg != nil {
-					msgContent := result.Info[1].(string)
-
-					if live.StormFilter && live.storming[buffer.RoomID] {
-						for _, value := range live.stormContent[buffer.RoomID] {
-							if msgContent == value {
-								//log.Println("过滤弹幕：", value)
-								continue analysis
-							}
-						}
-					}
-
-					userInfo := result.Info[2].([]interface{})
-					medalInfo := result.Info[3].([]interface{})
-					m := &MsgModel{
-						UserID:    int64(userInfo[0].(float64)),
-						UserName:  userInfo[1].(string),
-						UserLevel: int(result.Info[4].([]interface{})[0].(float64)),
-						Content:   msgContent,
-						Timestamp: int64(result.Info[9].(map[string]interface{})["ts"].(float64)),
-					}
-					if len(medalInfo) >= 4 {
-						m.MedalLevel = int(medalInfo[0].(float64))
-						m.MedalName = medalInfo[1].(string)
-						m.MedalUpName = medalInfo[2].(string)
-						m.MedalRoomID = int64(medalInfo[3].(float64))
-					}
-					live.ReceiveMsg(buffer.RoomID, m)
-				}
-			case "SEND_GIFT": // 礼物通知
-				if live.ReceiveGift != nil {
-					m := &GiftModel{}
-					_ = json.Unmarshal(temp, m)
-					live.ReceiveGift(buffer.RoomID, m)
-				}
-			case "COMBO_SEND": // 连击
-				if live.GiftComboSend != nil {
-					m := &ComboSendModel{}
-					_ = json.Unmarshal(temp, m)
-					live.GiftComboSend(buffer.RoomID, m)
-				}
-			case "COMBO_END": // 连击结束
-				if live.GiftComboEnd != nil {
-					m := &ComboEndModel{}
-					_ = json.Unmarshal(temp, m)
-					live.GiftComboEnd(buffer.RoomID, m)
-				}
-			case "GUARD_BUY": // 上船
-				if live.GuardBuy != nil {
-					m := &GuardBuyModel{}
-					_ = json.Unmarshal(temp, m)
-					live.GuardBuy(buffer.RoomID, m)
-				}
-			case "ROOM_REAL_TIME_MESSAGE_UPDATE": // 粉丝数更新
-				if live.FansUpdate != nil {
-					m := &FansUpdateModel{}
-					_ = json.Unmarshal(temp, m)
-					live.FansUpdate(buffer.RoomID, m)
-				}
-			case "ROOM_RANK": // 小时榜
-				if live.RoomRank != nil {
-					m := &RankModel{}
-					_ = json.Unmarshal(temp, m)
-					live.RoomRank(buffer.RoomID, m)
-				}
-			case "SPECIAL_GIFT": // 特殊礼物
-				m := &SpecialGiftModel{}
-				_ = json.Unmarshal(temp, m)
-				if m.Storm.Action == "start" {
-					m.Storm.ID, _ = strconv.ParseInt(m.Storm.TempID.(string), 10, 64)
-				}
-				if m.Storm.Action == "end" {
-					m.Storm.ID = int64(m.Storm.TempID.(float64))
-				}
-				if live.StormFilter && live.ReceiveMsg != nil {
-					if m.Storm.Action == "start" {
-						live.storming[buffer.RoomID] = true
-						live.stormContent[buffer.RoomID][m.Storm.ID] = m.Storm.Content
-						//log.Println("添加过滤弹幕：", m.Storm.ID, m.Storm.Content)
-					}
-					if m.Storm.Action == "end" {
-						delete(live.stormContent[buffer.RoomID], m.Storm.ID)
-						live.storming[buffer.RoomID] = len(live.stormContent) > 0
-						//log.Println("移除过滤弹幕：", m.Storm.ID, live.storming)
+				case "SYS_GIFT": // 系统礼物
+					fallthrough
+				case "BLOCK": // 未知
+					fallthrough
+				case "ROUND": // 未知
+					fallthrough
+				case "REFRESH": // 刷新
+					fallthrough
+				case "ACTIVITY_BANNER_UPDATE_V2": //
+					fallthrough
+				case "ANCHOR_LOT_CHECKSTATUS": //
+					fallthrough
+				case "GUARD_MSG": // 舰长信息
+					fallthrough
+				case "NOTICE_MSG": // 通知信息
+					fallthrough
+				case "GUARD_LOTTERY_START": // 舰长抽奖开始
+					fallthrough
+				case "USER_TOAST_MSG": // 用户通知消息
+					fallthrough
+				case "WISH_BOTTLE": // 许愿瓶
+					fallthrough
+				case "ROOM_BLOCK_MSG":
+					fallthrough
+				case "WEEK_STAR_CLOCK":
+					fallthrough
+				default:
+					if live.Debug {
+						log.Println(string(buffer.Buffer))
 					}
 				}
-				if live.SpecialGift != nil {
-					live.SpecialGift(buffer.RoomID, m)
-				}
-			case "SUPER_CHAT_MESSAGE": // 醒目留言
-				if live.SuperChatMessage != nil {
-					m := &SuperChatMessageModel{}
-					_ = json.Unmarshal(temp, m)
-					live.SuperChatMessage(buffer.RoomID, m)
-				}
-			case "SUPER_CHAT_MESSAGE_JPN":
-				if live.Debug {
-					log.Println(string(buffer.Buffer))
-				}
-			case "SYS_GIFT": // 系统礼物
-				fallthrough
-			case "BLOCK": // 未知
-				fallthrough
-			case "ROUND": // 未知
-				fallthrough
-			case "REFRESH": // 刷新
-				fallthrough
-			case "ACTIVITY_BANNER_UPDATE_V2": //
-				fallthrough
-			case "ANCHOR_LOT_CHECKSTATUS": //
-				fallthrough
-			case "GUARD_MSG": // 舰长信息
-				fallthrough
-			case "NOTICE_MSG": // 通知信息
-				fallthrough
-			case "GUARD_LOTTERY_START": // 舰长抽奖开始
-				fallthrough
-			case "USER_TOAST_MSG": // 用户通知消息
-				fallthrough
-			case "ENTRY_EFFECT": // 进入效果
-				fallthrough
-			case "WISH_BOTTLE": // 许愿瓶
-				fallthrough
-			case "ROOM_BLOCK_MSG":
-				fallthrough
-			case "WEEK_STAR_CLOCK":
-				fallthrough
 			default:
-				if live.Debug {
-					log.Println(string(buffer.Buffer))
-				}
+				return
 			}
 		default:
-			break
 		}
 	}
 }
@@ -482,7 +496,6 @@ func (room *liveRoom) heartBeat(ctx context.Context) {
 			return
 		default:
 		}
-
 		room.sendData(WS_OP_HEARTBEAT, []byte{})
 		time.Sleep(30 * time.Second)
 	}
@@ -503,7 +516,6 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 			return
 		default:
 		}
-
 		_, err := io.ReadFull(room.conn, headerBuffer)
 		if err != nil {
 			log.Println("ReadFull: error", err)
@@ -524,7 +536,6 @@ func (room *liveRoom) receive(ctx context.Context, chSocketMessage chan<- *socke
 			counter++
 			continue
 		}
-
 		payloadBuffer := make([]byte, head.Length-WS_PACKAGE_HEADER_TOTAL_LENGTH)
 		_, err = io.ReadFull(room.conn, payloadBuffer)
 		if err != nil {
