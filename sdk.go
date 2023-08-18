@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/andybalholm/brotli"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cast"
 	"io"
 	"log"
@@ -420,6 +421,7 @@ func (room *liveRoom) findServer() error {
 		return errors.New("房间不正确")
 	}
 	room.realRoomID = roomInfo.Data.RoomID
+	room.uid = roomInfo.Data.UID
 	resDanmuConfig, err := httpSend(fmt.Sprintf(roomConfigURL, room.realRoomID))
 	if err != nil {
 		return err
@@ -477,13 +479,14 @@ func (room *liveRoom) createConnect() {
 func (room *liveRoom) enter() {
 	room.createConnect()
 	enterInfo := &enterInfo{
-		RoomID:    room.realRoomID,
-		UserID:    9999999999 + rand.Int63(),
-		ProtoVer:  3,
-		Platform:  "web",
-		ClientVer: "1.14.3",
-		Type:      2,
-		Key:       room.token,
+		RoomID:   room.realRoomID,
+		BuVID:    uuid.NewV4().String(),
+		UserID:   int64(room.uid),
+		ProtoVer: 3,
+		Platform: "web",
+		//ClientVer: "1.14.3",
+		Type: 2,
+		Key:  room.token,
 	}
 	payload, err := json.Marshal(enterInfo)
 	if err != nil {

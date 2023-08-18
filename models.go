@@ -50,6 +50,7 @@ type socketMessage struct {
 type liveRoom struct {
 	roomID             int // 房间ID（兼容短ID）
 	realRoomID         int
+	uid                int
 	cancel             context.CancelFunc
 	server             string // 地址
 	port               int    // 端口
@@ -76,6 +77,7 @@ type operateInfo struct {
 // 进入房间信息
 type enterInfo struct {
 	RoomID    int    `json:"roomid"`
+	BuVID     string `json:"buvid"`
 	UserID    int64  `json:"uid"`
 	ProtoVer  int    `json:"protover"`
 	Platform  string `json:"platform"`
@@ -93,6 +95,7 @@ type roomInfoResult struct {
 // 房间数据
 type roomInfoData struct {
 	RoomID int `json:"room_id"`
+	UID    int `json:"uid"`
 }
 
 // 弹幕信息
