@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/andybalholm/brotli"
 	"github.com/spf13/cast"
 	"io"
 	"log"
@@ -36,6 +37,7 @@ const (
 	//WS_SEQUENCE_OFFSET               int32 = 12
 	//WS_BODY_PROTOCOL_VERSION_NORMAL  int32 = 0
 	WS_BODY_PROTOCOL_VERSION_DEFLATE int16 = 2
+	WS_BODY_PROTOCOL_VERSION_BROTLI  int16 = 3
 	WS_HEADER_DEFAULT_VERSION        int16 = 1
 	//WS_HEADER_DEFAULT_OPERATION      int32 = 1
 	WS_HEADER_DEFAULT_SEQUENCE int32 = 1
@@ -161,8 +163,12 @@ func (live *Live) split(ctx context.Context) {
 					message.body = doZlibUnCompress(payloadBuffer)
 					continue
 				}
+				if head.ProtocolVersion == WS_BODY_PROTOCOL_VERSION_BROTLI {
+					message.body = doBrotliUnCompress(payloadBuffer)
+					continue
+				}
 				if live.Debug {
-					log.Println(string(payloadBuffer))
+					log.Println("debug", head.Operation, head.ProtocolVersion, len(payloadBuffer), len(message.body), string(payloadBuffer))
 				}
 				live.chOperation <- &operateInfo{RoomID: message.roomID, Operation: head.Operation, Buffer: payloadBuffer}
 			}
@@ -193,7 +199,6 @@ analysis:
 			case WS_OP_MESSAGE:
 				if live.Raw != nil {
 					live.Raw(buffer.RoomID, buffer.Buffer)
-					continue
 				}
 				result := cmdModel{}
 				err := json.Unmarshal(buffer.Buffer, &result)
@@ -474,9 +479,9 @@ func (room *liveRoom) enter() {
 	enterInfo := &enterInfo{
 		RoomID:    room.realRoomID,
 		UserID:    9999999999 + rand.Int63(),
-		ProtoVer:  2,
+		ProtoVer:  3,
 		Platform:  "web",
-		ClientVer: "1.10.6",
+		ClientVer: "1.14.3",
 		Type:      2,
 		Key:       room.token,
 	}
@@ -601,4 +606,16 @@ func doZlibUnCompress(compressSrc []byte) []byte {
 		log.Println("zlib copy", err)
 	}
 	return out.Bytes()
+}
+
+// 进行brotli解压缩
+func doBrotliUnCompress(compressSrc []byte) []byte {
+	br := brotli.NewReader(nil)
+	br.Reset(bytes.NewReader(compressSrc))
+	bs, err := io.ReadAll(br)
+	if err != nil {
+		log.Println("doBrotliUnCompress ReadAll", err)
+		return []byte{}
+	}
+	return bs
 }
