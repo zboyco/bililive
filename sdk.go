@@ -25,6 +25,7 @@ import (
 const (
 	roomInitURL                    string = "https://api.live.bilibili.com/room/v1/Room/room_init?id=%d"
 	roomConfigURL                  string = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=%d"
+	danmuInfoURL                   string = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?id=%d&type=0"
 	WS_OP_HEARTBEAT                int32  = 2
 	WS_OP_HEARTBEAT_REPLY          int32  = 3
 	WS_OP_MESSAGE                  int32  = 5
@@ -84,8 +85,8 @@ func (live *Live) Wait() {
 	live.wg.Wait()
 }
 
-// Join 添加房间
-func (live *Live) Join(roomIDs ...int) error {
+// JoinWithLogin 带登录态登录
+func (live *Live) JoinWithLogin(viewerUID int, viewerCookie string, roomIDs ...int) error {
 	if len(roomIDs) == 0 {
 		return errors.New("没有要添加的房间")
 	}
@@ -101,8 +102,10 @@ func (live *Live) Join(roomIDs ...int) error {
 		nextCtx, cancel := context.WithCancel(live.ctx)
 
 		room := &liveRoom{
-			roomID: roomID,
-			cancel: cancel,
+			roomID:       roomID,
+			cancel:       cancel,
+			viewerUID:    viewerUID,
+			viewerCookie: viewerCookie,
 		}
 		live.room[roomID] = room
 		room.enter()
@@ -111,6 +114,11 @@ func (live *Live) Join(roomIDs ...int) error {
 		go room.receive(nextCtx, live.chSocketMessage)
 	}
 	return nil
+}
+
+// Join 添加房间
+func (live *Live) Join(roomIDs ...int) error {
+	return live.JoinWithLogin(0, "", roomIDs...)
 }
 
 // Remove 移出房间
@@ -414,11 +422,10 @@ analysis:
 }
 
 func (room *liveRoom) findServer() error {
-	resRoom, err := httpSend(fmt.Sprintf(roomInitURL, room.roomID))
+	resRoom, err := httpSend(fmt.Sprintf(roomInitURL, room.roomID), room.viewerCookie)
 	if err != nil {
 		return err
 	}
-
 	roomInfo := roomInfoResult{}
 	_ = json.Unmarshal(resRoom, &roomInfo)
 	if roomInfo.Code != 0 || roomInfo.Data == nil {
@@ -426,23 +433,29 @@ func (room *liveRoom) findServer() error {
 	}
 	room.realRoomID = roomInfo.Data.RoomID
 	room.uid = roomInfo.Data.UID
-	resDanmuConfig, err := httpSend(fmt.Sprintf(roomConfigURL, room.realRoomID))
+	rspDanmuInfo, err := httpSend(fmt.Sprintf(danmuInfoURL, room.realRoomID), room.viewerCookie)
 	if err != nil {
 		return err
 	}
 
-	danmuConfig := danmuConfigResult{}
-	_ = json.Unmarshal(resDanmuConfig, &danmuConfig)
-	if danmuConfig.Data == nil {
+	danmuInfo := danmuInfoResp{}
+	_ = json.Unmarshal(rspDanmuInfo, &danmuInfo)
+	if danmuInfo.Code != 0 {
 		return errors.New("获取弹幕服务器失败")
 	}
-	room.server = danmuConfig.Data.Host
-	room.port = danmuConfig.Data.Port
-	// 可着一个先薅着
-	serverList := []*hostServerList{&hostServerList{Host: "hw-gz-live-comet-02.chat.bilibili.com", Port: 2243, WssPort: 443, WsPort: 2244}}
-	serverList = append(serverList, danmuConfig.Data.HostServerList...)
+	//room.server = danmuConfig.Data.Host
+	//room.port = danmuConfig.Data.Port
+	serverList := []*hostServerList{}
+	for _, server := range danmuInfo.Data.HostList {
+		serverList = append(serverList, &hostServerList{
+			Host:    server.Host,
+			Port:    server.Port,
+			WssPort: server.WssPort,
+			WsPort:  server.WsPort,
+		})
+	}
 	room.hostServerList = serverList
-	room.token = danmuConfig.Data.Token
+	room.token = danmuInfo.Data.Token
 	room.currentServerIndex = 0
 	return nil
 }
@@ -493,6 +506,9 @@ func (room *liveRoom) enter() {
 		//ClientVer: "1.14.3",
 		Type: 2,
 		Key:  room.token,
+	}
+	if room.viewerUID != 0 {
+		enterInfo.UserID = int64(room.viewerUID)
 	}
 	payload, err := json.Marshal(enterInfo)
 	if err != nil {
