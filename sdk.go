@@ -438,7 +438,10 @@ func (room *liveRoom) findServer() error {
 	}
 	room.server = danmuConfig.Data.Host
 	room.port = danmuConfig.Data.Port
-	room.hostServerList = danmuConfig.Data.HostServerList
+	// 可着一个先薅着
+	serverList := []*hostServerList{&hostServerList{Host: "hw-gz-live-comet-02.chat.bilibili.com", Port: 2243, WssPort: 443, WsPort: 2244}}
+	serverList = append(serverList, danmuConfig.Data.HostServerList...)
+	room.hostServerList = serverList
 	room.token = danmuConfig.Data.Token
 	room.currentServerIndex = 0
 	return nil
@@ -457,7 +460,6 @@ func (room *liveRoom) createConnect() {
 				break
 			}
 		}
-
 		counter := 0
 		for {
 			log.Println("尝试创建连接：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
