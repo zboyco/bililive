@@ -252,18 +252,6 @@ analysis:
 						_ = json.Unmarshal(temp, m)
 						live.RoomChange(buffer.RoomID, m)
 					}
-				case "WELCOME": // 用户进入
-					if live.UserEnter != nil {
-						m := &UserEnterModel{}
-						_ = json.Unmarshal(temp, m)
-						live.UserEnter(buffer.RoomID, m)
-					}
-				case "WELCOME_GUARD": // 舰长进入
-					if live.GuardEnter != nil {
-						m := &GuardEnterModel{}
-						_ = json.Unmarshal(temp, m)
-						live.GuardEnter(buffer.RoomID, m)
-					}
 				case "DANMU_MSG": // 弹幕
 					if live.ReceiveMsg != nil {
 						msgContent := result.Info[1].(string)
@@ -367,14 +355,14 @@ analysis:
 						log.Println(string(buffer.Buffer))
 					}
 				case "ENTRY_EFFECT": // 进入效果
-					if live.UserEnter != nil {
+					if live.EffectEnter != nil {
 						m := &UserEnterModel{}
 						_ = json.Unmarshal(temp, m)
 						tokens := ret.FindStringSubmatch(m.CopyWriting)
 						if len(tokens) > 1 {
 							m.UserName = strings.TrimSpace(tokens[1])
 						}
-						live.UserEnter(buffer.RoomID, m)
+						live.EffectEnter(buffer.RoomID, m)
 					}
 				case "INTERACT_WORD": // 观众进入
 					if live.UserEnter != nil {

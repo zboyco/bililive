@@ -18,7 +18,7 @@ type Live struct {
 	ReceiveGift         func(int, *GiftModel)             // 接收礼物方法
 	ReceivePopularValue func(int, uint32)                 // 接收人气值方法
 	UserEnter           func(int, *UserEnterModel)        // 用户进入方法
-	GuardEnter          func(int, *GuardEnterModel)       // 舰长进入方法
+	EffectEnter         func(int, *UserEnterModel)        // 特效入场
 	GiftComboSend       func(int, *ComboSendModel)        // 礼物连击方法
 	GiftComboEnd        func(int, *ComboEndModel)         // 礼物连击结束方法
 	GuardBuy            func(int, *GuardBuyModel)         // 上船
