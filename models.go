@@ -155,13 +155,14 @@ type SysMsgModel struct {
 
 // UserEnterModel 用户进入模型
 type UserEnterModel struct {
-	UserID       int64  `json:"uid"`
-	UserName     string `json:"uname"`
-	IsAdmin      bool   `json:"is_admin"`
-	VIP          int    `json:"vip"`
-	SVIP         int    `json:"svip"`
-	CopyWriting  string `json:"copy_writing_v2"`
-	Contribution struct {
+	UserID        int64  `json:"uid"`
+	UserName      string `json:"uname"`
+	IsAdmin       bool   `json:"is_admin"`
+	VIP           int    `json:"vip"`
+	SVIP          int    `json:"svip"`
+	PrivilegeType int    `json:"privilege_type"`
+	CopyWriting   string `json:"copy_writing_v2"`
+	Contribution  struct {
 		Grade int `json:"grade"`
 	} `json:"contribution"`
 	WealthyInfo struct {
