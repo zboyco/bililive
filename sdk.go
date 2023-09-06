@@ -5,10 +5,10 @@ import (
 	"compress/zlib"
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/andybalholm/brotli"
+	jsoniter "github.com/json-iterator/go"
 	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cast"
 	"io"
@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 const (
 	roomInitURL                    string = "https://api.live.bilibili.com/room/v1/Room/room_init?id=%d"
@@ -369,6 +371,24 @@ analysis:
 						m := &InteractWordModel{}
 						_ = json.Unmarshal(temp, m)
 						live.InteractWord(buffer.RoomID, m)
+					}
+				case "PK_BATTLE_START_NEW": //
+					if live.PkBattleStartNew != nil {
+						m := &PkBattleStartNewModel{}
+						_ = json.Unmarshal(buffer.Buffer, &m)
+						live.PkBattleStartNew(buffer.RoomID, m)
+					}
+				case "PK_BATTLE_PROCESS_NEW": //
+					if live.PkBattleProcessNew != nil {
+						m := &PkBattleProcessNewModel{}
+						_ = json.Unmarshal(buffer.Buffer, &m)
+						live.PkBattleProcessNew(buffer.RoomID, m)
+					}
+				case "PK_BATTLE_END": //
+					if live.PkBattleEnd != nil {
+						m := &PkBattleEndModel{}
+						_ = json.Unmarshal(buffer.Buffer, &m)
+						live.PkBattleEnd(buffer.RoomID, m)
 					}
 				case "SYS_GIFT": // 系统礼物
 					fallthrough

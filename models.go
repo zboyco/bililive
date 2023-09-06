@@ -12,30 +12,36 @@ const (
 	InteractWordMsgTypeShare         = 3 // 分享
 	InteractWordMsgTypeSpecialFollow = 4 // 特别关注
 	InteractWordMsgTypeDualFollow    = 5 // 互粉
+	BattleTypePk                     = 1 // 大乱斗
+	BattleTypeVideoPk                = 2 // 视频大乱斗
+	BattleTypeFriendPk               = 6 // 好友PK
 )
 
 // Live 直播间
 type Live struct {
-	Debug               bool                              // 是否显示日志
-	AnalysisRoutineNum  int                               // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
-	StormFilter         bool                              // 过滤节奏风暴弹幕，默认false不过滤
-	Raw                 func(int, []byte)                 // 原始数据
-	Live                func(int)                         // 直播开始通知
-	End                 func(int)                         // 直播结束通知
-	ReceiveMsg          func(int, *MsgModel)              // 接收消息方法
-	ReceiveGift         func(int, *GiftModel)             // 接收礼物方法
-	ReceivePopularValue func(int, uint32)                 // 接收人气值方法
-	InteractWord        func(int, *InteractWordModel)     // 互动消息
-	EntryEffect         func(int, *EntryEffectModel)      // 特效入场
-	GiftComboSend       func(int, *ComboSendModel)        // 礼物连击方法
-	GiftComboEnd        func(int, *ComboEndModel)         // 礼物连击结束方法
-	GuardBuy            func(int, *GuardBuyModel)         // 上船
-	FansUpdate          func(int, *FansUpdateModel)       // 粉丝数更新
-	RoomRank            func(int, *RankModel)             // 小时榜
-	RoomChange          func(int, *RoomChangeModel)       // 房间信息变更
-	SpecialGift         func(int, *SpecialGiftModel)      // 特殊礼物
-	SuperChatMessage    func(int, *SuperChatMessageModel) // 超级留言
-	SysMessage          func(int, *SysMsgModel)           // 系统信息
+	Debug               bool                                // 是否显示日志
+	AnalysisRoutineNum  int                                 // 消息分析协程数量，默认为1，为1可以保证通知顺序与接收到消息顺序相同
+	StormFilter         bool                                // 过滤节奏风暴弹幕，默认false不过滤
+	Raw                 func(int, []byte)                   // 原始数据
+	Live                func(int)                           // 直播开始通知
+	End                 func(int)                           // 直播结束通知
+	ReceiveMsg          func(int, *MsgModel)                // 接收消息方法
+	ReceiveGift         func(int, *GiftModel)               // 接收礼物方法
+	ReceivePopularValue func(int, uint32)                   // 接收人气值方法
+	InteractWord        func(int, *InteractWordModel)       // 互动消息
+	EntryEffect         func(int, *EntryEffectModel)        // 特效入场
+	GiftComboSend       func(int, *ComboSendModel)          // 礼物连击方法
+	GiftComboEnd        func(int, *ComboEndModel)           // 礼物连击结束方法
+	GuardBuy            func(int, *GuardBuyModel)           // 上船
+	FansUpdate          func(int, *FansUpdateModel)         // 粉丝数更新
+	RoomRank            func(int, *RankModel)               // 小时榜
+	RoomChange          func(int, *RoomChangeModel)         // 房间信息变更
+	SpecialGift         func(int, *SpecialGiftModel)        // 特殊礼物
+	SuperChatMessage    func(int, *SuperChatMessageModel)   // 超级留言
+	SysMessage          func(int, *SysMsgModel)             // 系统信息
+	PkBattleStartNew    func(int, *PkBattleStartNewModel)   // 大乱斗开始
+	PkBattleProcessNew  func(int, *PkBattleProcessNewModel) // 大乱斗状态更新（绝杀）
+	PkBattleEnd         func(int, *PkBattleEndModel)        // 大乱斗结束
 
 	wg  sync.WaitGroup
 	ctx context.Context
@@ -345,4 +351,109 @@ type SuperChatMessageModel struct {
 	UserInfo struct {
 		UserName string `json:"uname"`
 	} `json:"user_info"`
+}
+
+type PkBattleStartNewModel struct {
+	Cmd       string `json:"cmd"`
+	PkId      int    `json:"pk_id"`
+	PkStatus  int    `json:"pk_status"`
+	Timestamp int    `json:"timestamp"`
+	Data      struct {
+		BattleType    int    `json:"battle_type"`
+		FinalHitVotes int    `json:"final_hit_votes"`
+		PkStartTime   int    `json:"pk_start_time"`
+		PkFrozenTime  int    `json:"pk_frozen_time"`
+		PkEndTime     int    `json:"pk_end_time"`
+		PkVotesType   int    `json:"pk_votes_type"`
+		PkVotesAdd    int    `json:"pk_votes_add"`
+		PkVotesName   string `json:"pk_votes_name"`
+		StarLightMsg  string `json:"star_light_msg"`
+		PkCountdown   int    `json:"pk_countdown"`
+		FinalConf     struct {
+			Switch    int `json:"switch"`
+			StartTime int `json:"start_time"`
+			EndTime   int `json:"end_time"`
+		} `json:"final_conf"`
+		InitInfo struct {
+			RoomId     int `json:"room_id"`
+			DateStreak int `json:"date_streak"`
+		} `json:"init_info"`
+		MatchInfo struct {
+			RoomId     int `json:"room_id"`
+			DateStreak int `json:"date_streak"`
+		} `json:"match_info"`
+	} `json:"data"`
+	Roomid string `json:"roomid"`
+}
+
+type PkBattleProcessNewModel struct {
+	Cmd  string `json:"cmd"`
+	Data struct {
+		BattleType int `json:"battle_type"`
+		InitInfo   struct {
+			RoomId     int         `json:"room_id"`
+			Votes      int         `json:"votes"`
+			BestUname  string      `json:"best_uname"`
+			VisionDesc int         `json:"vision_desc"`
+			AssistInfo interface{} `json:"assist_info"`
+		} `json:"init_info"`
+		MatchInfo struct {
+			RoomId     int    `json:"room_id"`
+			Votes      int    `json:"votes"`
+			BestUname  string `json:"best_uname"`
+			VisionDesc int    `json:"vision_desc"`
+			AssistInfo []struct {
+				Rank  int    `json:"rank"`
+				Uid   int    `json:"uid"`
+				Face  string `json:"face"`
+				Uname string `json:"uname"`
+			} `json:"assist_info"`
+		} `json:"match_info"`
+		TraceId string `json:"trace_id"`
+	} `json:"data"`
+	PkId      int `json:"pk_id"`
+	PkStatus  int `json:"pk_status"`
+	Timestamp int `json:"timestamp"`
+}
+
+type PkBattleEndModel struct {
+	Cmd       string `json:"cmd"`
+	PkId      string `json:"pk_id"`
+	PkStatus  int    `json:"pk_status"`
+	Timestamp int    `json:"timestamp"`
+	Data      struct {
+		ShowStreak bool `json:"show_streak"`
+		BattleType int  `json:"battle_type"`
+		Timer      int  `json:"timer"`
+		InitInfo   struct {
+			RoomId     int    `json:"room_id"`
+			Votes      int    `json:"votes"`
+			WinnerType int    `json:"winner_type"`
+			BestUname  string `json:"best_uname"`
+			AssistInfo []struct {
+				Rank  int    `json:"rank"`
+				Uid   int    `json:"uid"`
+				Score int    `json:"score"`
+				Face  string `json:"face"`
+				Uname string `json:"uname"`
+			} `json:"assist_info"`
+		} `json:"init_info"`
+		MatchInfo struct {
+			RoomId     int    `json:"room_id"`
+			Votes      int    `json:"votes"`
+			WinnerType int    `json:"winner_type"`
+			BestUname  string `json:"best_uname"`
+			AssistInfo []struct {
+				Rank  int    `json:"rank"`
+				Uid   int    `json:"uid"`
+				Score int    `json:"score"`
+				Face  string `json:"face"`
+				Uname string `json:"uname"`
+			} `json:"assist_info"`
+		} `json:"match_info"`
+		DmConf struct {
+			FontColor string `json:"font_color"`
+			BgColor   string `json:"bg_color"`
+		} `json:"dm_conf"`
+	} `json:"data"`
 }
