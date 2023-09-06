@@ -355,20 +355,20 @@ analysis:
 						log.Println(string(buffer.Buffer))
 					}
 				case "ENTRY_EFFECT": // 进入效果
-					if live.EffectEnter != nil {
-						m := &UserEnterModel{}
+					if live.EntryEffect != nil {
+						m := &EntryEffectModel{}
 						_ = json.Unmarshal(temp, m)
 						tokens := ret.FindStringSubmatch(m.CopyWriting)
 						if len(tokens) > 1 {
-							m.UserName = strings.TrimSpace(tokens[1])
+							m.UName = strings.TrimSpace(tokens[1])
 						}
-						live.EffectEnter(buffer.RoomID, m)
+						live.EntryEffect(buffer.RoomID, m)
 					}
-				case "INTERACT_WORD": // 观众进入
-					if live.UserEnter != nil {
-						m := &UserEnterModel{}
+				case "INTERACT_WORD": // 互动消息
+					if live.InteractWord != nil {
+						m := &InteractWordModel{}
 						_ = json.Unmarshal(temp, m)
-						live.UserEnter(buffer.RoomID, m)
+						live.InteractWord(buffer.RoomID, m)
 					}
 				case "SYS_GIFT": // 系统礼物
 					fallthrough

@@ -6,6 +6,14 @@ import (
 	"sync"
 )
 
+const (
+	InteractWordMsgTypeEnter         = 1 // 入场
+	InteractWordMsgTypeFollow        = 2 // 关注
+	InteractWordMsgTypeShare         = 3 // 分享
+	InteractWordMsgTypeSpecialFollow = 4 // 特别关注
+	InteractWordMsgTypeDualFollow    = 5 // 互粉
+)
+
 // Live 直播间
 type Live struct {
 	Debug               bool                              // 是否显示日志
@@ -17,8 +25,8 @@ type Live struct {
 	ReceiveMsg          func(int, *MsgModel)              // 接收消息方法
 	ReceiveGift         func(int, *GiftModel)             // 接收礼物方法
 	ReceivePopularValue func(int, uint32)                 // 接收人气值方法
-	UserEnter           func(int, *UserEnterModel)        // 用户进入方法
-	EffectEnter         func(int, *UserEnterModel)        // 特效入场
+	InteractWord        func(int, *InteractWordModel)     // 互动消息
+	EntryEffect         func(int, *EntryEffectModel)      // 特效入场
 	GiftComboSend       func(int, *ComboSendModel)        // 礼物连击方法
 	GiftComboEnd        func(int, *ComboEndModel)         // 礼物连击结束方法
 	GuardBuy            func(int, *GuardBuyModel)         // 上船
@@ -153,42 +161,80 @@ type SysMsgModel struct {
 	MsgText string `json:"msg_text"`
 }
 
-// UserEnterModel 用户进入模型
-type UserEnterModel struct {
-	UserID        int64  `json:"uid"`
-	UserName      string `json:"uname"`
-	IsAdmin       bool   `json:"is_admin"`
-	VIP           int    `json:"vip"`
-	SVIP          int    `json:"svip"`
-	PrivilegeType int    `json:"privilege_type"`
-	CopyWriting   string `json:"copy_writing_v2"`
-	Contribution  struct {
-		Grade int `json:"grade"`
-	} `json:"contribution"`
-	WealthyInfo struct {
-		CurScore         int    `json:"cur_score"`
-		DmIconKey        string `json:"dm_icon_key"`
-		Level            int    `json:"level"`
-		LevelTotalScore  int    `json:"level_total_score"`
-		Status           int    `json:"status"`
-		Uid              int    `json:"uid"`
-		UpgradeNeedScore int    `json:"upgrade_need_score"`
-	} `json:"wealthy_info"`
-	FansMedal struct {
-		AnchorRoomid     int    `json:"anchor_roomid"`
-		GuardLevel       int    `json:"guard_level"`
-		IconId           int    `json:"icon_id"`
-		IsLighted        int    `json:"is_lighted"`
-		MedalColor       int    `json:"medal_color"`
-		MedalColorBorder int    `json:"medal_color_border"`
-		MedalColorEnd    int    `json:"medal_color_end"`
-		MedalColorStart  int    `json:"medal_color_start"`
+type EntryEffectModel struct {
+	ID                   int           `json:"id"`
+	UID                  int           `json:"uid"`
+	TargetID             int           `json:"target_id"`
+	MockEffect           int           `json:"mock_effect"`
+	Face                 string        `json:"face"`
+	UName                string        `json:"uname"`
+	PrivilegeType        int           `json:"privilege_type"`
+	CopyWriting          string        `json:"copy_writing"`
+	CopyColor            string        `json:"copy_color"`
+	HighlightColor       string        `json:"highlight_color"`
+	Priority             int           `json:"priority"`
+	BasemapUrl           string        `json:"basemap_url"`
+	ShowAvatar           int           `json:"show_avatar"`
+	EffectiveTime        int           `json:"effective_time"`
+	WebBasemapUrl        string        `json:"web_basemap_url"`
+	WebEffectiveTime     int           `json:"web_effective_time"`
+	WebEffectClose       int           `json:"web_effect_close"`
+	WebCloseTime         int           `json:"web_close_time"`
+	Business             int           `json:"business"`
+	CopyWritingV2        string        `json:"copy_writing_v2"`
+	IconList             []interface{} `json:"icon_list"`
+	MaxDelayTime         int           `json:"max_delay_time"`
+	TriggerTime          int64         `json:"trigger_time"`
+	Identities           int           `json:"identities"`
+	EffectSilentTime     int           `json:"effect_silent_time"`
+	EffectiveTimeNew     int           `json:"effective_time_new"`
+	WebDynamicUrlWebp    string        `json:"web_dynamic_url_webp"`
+	WebDynamicUrlApng    string        `json:"web_dynamic_url_apng"`
+	MobileDynamicUrlWebp string        `json:"mobile_dynamic_url_webp"`
+	WealthyInfo          interface{}   `json:"wealthy_info"`
+	NewStyle             int           `json:"new_style"`
+}
+
+type InteractWordModel struct {
+	Uid        int    `json:"uid"`
+	Uname      string `json:"uname"`
+	UnameColor string `json:"uname_color"`
+	Identities []int  `json:"identities"`
+	MsgType    int    `json:"msg_type"`
+	RoomID     int    `json:"roomid"`
+	Timestamp  int    `json:"timestamp"`
+	Score      int64  `json:"score"`
+	FansMedal  struct {
+		TargetID         int    `json:"target_id"`
 		MedalLevel       int    `json:"medal_level"`
 		MedalName        string `json:"medal_name"`
-		Score            int    `json:"score"`
+		MedalColor       int    `json:"medal_color"`
+		MedalColorStart  int    `json:"medal_color_start"`
+		MedalColorEnd    int    `json:"medal_color_end"`
+		MedalColorBorder int    `json:"medal_color_border"`
+		IsLighted        int    `json:"is_lighted"`
+		GuardLev         int    `json:"guard_lev"`
 		Special          string `json:"special"`
-		TargetId         int    `json:"target_id"`
+		IconId           int    `json:"icon_id"`
+		AnchorRoomid     int    `json:"anchor_roomid"`
+		Score            int    `json:"score"`
 	} `json:"fans_medal"`
+	IsSpread     int    `json:"is_spread"`
+	SpreadInfo   string `json:"spread_info"`
+	Contribution struct {
+		Grade int `json:"grade"`
+	} `json:"contribution"`
+	SpreadDesc     string `json:"spread_desc"`
+	TailIcon       int    `json:"tail_icon"`
+	TriggerTime    int64  `json:"trigger_time"`
+	PrivilegeType  int    `json:"privilege_type"`
+	CoreUserType   int    `json:"core_user_type"`
+	TailText       string `json:"tail_text"`
+	ContributionV2 struct {
+		Grade    int    `json:"grade"`
+		RankType string `json:"rank_type"`
+		Text     string `json:"text"`
+	} `json:"contribution_v2"`
 }
 
 // GuardEnterModel 舰长进入模型
