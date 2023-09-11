@@ -252,16 +252,117 @@ type GuardEnterModel struct {
 
 // GiftModel 礼物模型
 type GiftModel struct {
-	GiftName  string `json:"giftName"`       // 礼物名称
-	Num       int    `json:"num"`            // 数量
-	UserName  string `json:"uname"`          // 用户名称
-	UserID    int64  `json:"uid"`            // 用户ID
-	GiftID    int    `json:"giftId"`         // 礼物ID
-	Price     int    `json:"price"`          // 价格
-	CoinType  string `json:"coin_type"`      // 硬币类型
-	FaceURL   string `json:"face"`           // 头像url
-	Combo     int    `json:"super_gift_num"` // 连击
-	Timestamp int64  `json:"timestamp"`      // 时间
+	Draw              int    `json:"draw"`
+	Gold              int    `json:"gold"`
+	Silver            int    `json:"silver"`
+	Num               int    `json:"num"`
+	TotalCoin         int    `json:"total_coin"`
+	Effect            int    `json:"effect"`
+	BroadcastId       int    `json:"broadcast_id"`
+	CritProb          int    `json:"crit_prob"`
+	GuardLevel        int    `json:"guard_level"`
+	Rcost             int    `json:"rcost"`
+	UserID            int    `json:"uid"`
+	Timestamp         int    `json:"timestamp"`
+	GiftID            int    `json:"giftId"`
+	GiftType          int    `json:"giftType"`
+	Super             int    `json:"super"`
+	Combo             int    `json:"super_gift_num"`
+	SuperBatchGiftNum int    `json:"super_batch_gift_num"`
+	Remain            int    `json:"remain"`
+	DiscountPrice     int    `json:"discount_price"`
+	Price             int    `json:"price"`
+	BeatId            string `json:"beatId"`
+	BizSource         string `json:"biz_source"`
+	Action            string `json:"action"`
+	CoinType          string `json:"coin_type"`
+	UserName          string `json:"uname"`
+	FaceURL           string `json:"face"`
+	BatchComboId      string `json:"batch_combo_id"`
+	Rnd               string `json:"rnd"`
+	GiftName          string `json:"giftName"`
+	OriginalGiftName  string `json:"original_gift_name"`
+	ComboSend         struct {
+		Uid        int         `json:"uid"`
+		GiftNum    int         `json:"gift_num"`
+		ComboNum   int         `json:"combo_num"`
+		GiftId     int         `json:"gift_id"`
+		ComboId    string      `json:"combo_id"`
+		GiftName   string      `json:"gift_name"`
+		Action     string      `json:"action"`
+		Uname      string      `json:"uname"`
+		SendMaster interface{} `json:"send_master"`
+	} `json:"combo_send"`
+	BatchComboSend struct {
+		Uid           int         `json:"uid"`
+		GiftNum       int         `json:"gift_num"`
+		BatchComboNum int         `json:"batch_combo_num"`
+		GiftId        int         `json:"gift_id"`
+		BatchComboId  string      `json:"batch_combo_id"`
+		GiftName      string      `json:"gift_name"`
+		Action        string      `json:"action"`
+		Uname         string      `json:"uname"`
+		SendMaster    interface{} `json:"send_master"`
+		BlindGift     struct {
+			BlindGiftConfigId int    `json:"blind_gift_config_id"`
+			OriginalGiftId    int    `json:"original_gift_id"`
+			OriginalGiftName  string `json:"original_gift_name"`
+			OriginalGiftPrice int    `json:"original_gift_price"`
+			From              int    `json:"from"`
+			GiftAction        string `json:"gift_action"`
+			GiftTipPrice      int    `json:"gift_tip_price"`
+		} `json:"blind_gift"`
+	} `json:"batch_combo_send"`
+	TagImage         string      `json:"tag_image"`
+	TopList          interface{} `json:"top_list"`
+	SendMaster       interface{} `json:"send_master"`
+	IsFirst          bool        `json:"is_first"`
+	Demarcation      int         `json:"demarcation"`
+	ComboStayTime    int         `json:"combo_stay_time"`
+	ComboTotalCoin   int         `json:"combo_total_coin"`
+	Tid              string      `json:"tid"`
+	EffectBlock      int         `json:"effect_block"`
+	IsSpecialBatch   int         `json:"is_special_batch"`
+	ComboResourcesId int         `json:"combo_resources_id"`
+	Magnification    int         `json:"magnification"`
+	NameColor        string      `json:"name_color"`
+	MedalInfo        struct {
+		TargetId         int    `json:"target_id"`
+		Special          string `json:"special"`
+		IconId           int    `json:"icon_id"`
+		AnchorUname      string `json:"anchor_uname"`
+		AnchorRoomid     int    `json:"anchor_roomid"`
+		MedalLevel       int    `json:"medal_level"`
+		MedalName        string `json:"medal_name"`
+		MedalColor       int    `json:"medal_color"`
+		MedalColorStart  int    `json:"medal_color_start"`
+		MedalColorEnd    int    `json:"medal_color_end"`
+		MedalColorBorder int    `json:"medal_color_border"`
+		IsLighted        int    `json:"is_lighted"`
+		GuardLevel       int    `json:"guard_level"`
+	} `json:"medal_info"`
+	SvgaBlock int `json:"svga_block"`
+	BlindGift struct {
+		BlindGiftConfigId int    `json:"blind_gift_config_id"`
+		OriginalGiftId    int    `json:"original_gift_id"`
+		OriginalGiftName  string `json:"original_gift_name"`
+		OriginalGiftPrice int    `json:"original_gift_price"`
+		From              int    `json:"from"`
+		GiftAction        string `json:"gift_action"`
+		GiftTipPrice      int    `json:"gift_tip_price"`
+	} `json:"blind_gift"`
+	FloatScResourceId int  `json:"float_sc_resource_id"`
+	Switch            bool `json:"switch"`
+	FaceEffectType    int  `json:"face_effect_type"`
+	FaceEffectId      int  `json:"face_effect_id"`
+	IsNaming          bool `json:"is_naming"`
+	ReceiveUserInfo   struct {
+		Uname string `json:"uname"`
+		Uid   int    `json:"uid"`
+	} `json:"receive_user_info"`
+	IsJoinReceiver bool        `json:"is_join_receiver"`
+	BagGift        interface{} `json:"bag_gift"`
+	WealthLevel    int         `json:"wealth_level"`
 }
 
 // MsgModel 消息
