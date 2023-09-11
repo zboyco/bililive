@@ -183,7 +183,6 @@ func (live *Live) split(ctx context.Context) {
 				}
 				live.chOperation <- &operateInfo{RoomID: message.roomID, Operation: head.Operation, Buffer: payloadBuffer}
 			}
-		default:
 		}
 
 	}
@@ -422,10 +421,7 @@ analysis:
 						log.Println(string(buffer.Buffer))
 					}
 				}
-			default:
-				return
 			}
-		default:
 		}
 	}
 }
