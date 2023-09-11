@@ -377,6 +377,7 @@ type MsgModel struct {
 	Content      string // 内容
 	Timestamp    int64  // 时间
 	WealthyLevel int    // 财富等级
+	GuardLevel   int    // 舰长类型
 }
 
 // ComboSendModel 连击模型

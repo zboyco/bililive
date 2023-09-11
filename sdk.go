@@ -284,6 +284,7 @@ analysis:
 								m.WealthyLevel = cast.ToInt(levelInfo[0])
 							}
 						}
+						m.GuardLevel = int(result.Info[7].(float64))
 						live.ReceiveMsg(buffer.RoomID, m)
 					}
 				case "SEND_GIFT": // 礼物通知
