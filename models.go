@@ -363,6 +363,7 @@ type GiftModel struct {
 	IsJoinReceiver bool        `json:"is_join_receiver"`
 	BagGift        interface{} `json:"bag_gift"`
 	WealthLevel    int         `json:"wealth_level"`
+	RawMsg         []byte      `json:"-"`
 }
 
 // MsgModel 消息

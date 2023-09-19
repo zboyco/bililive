@@ -290,6 +290,7 @@ analysis:
 					if live.ReceiveGift != nil {
 						m := &GiftModel{}
 						_ = json.Unmarshal(temp, m)
+						m.RawMsg = buffer.Buffer
 						live.ReceiveGift(buffer.RoomID, m)
 					}
 				case "COMBO_SEND": // 连击
@@ -508,9 +509,8 @@ func (room *liveRoom) enter() {
 		UserID:   int64(room.uid),
 		ProtoVer: 3,
 		Platform: "web",
-		//ClientVer: "1.14.3",
-		Type: 2,
-		Key:  room.token,
+		Type:     2,
+		Key:      room.token,
 	}
 	if room.viewerUID != 0 {
 		enterInfo.UserID = int64(room.viewerUID)
