@@ -481,7 +481,7 @@ func (room *liveRoom) createConnect() {
 		}
 		counter := 0
 		for {
-			log.Println("尝试创建连接：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
+			log.Println("尝试创建连接：", room.roomID, room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
 			conn, err := connect(room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
 			if err != nil {
 				log.Println("connect err:", err)
@@ -494,7 +494,7 @@ func (room *liveRoom) createConnect() {
 				continue
 			}
 			room.conn = conn
-			log.Println("连接创建成功：", room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
+			log.Println("连接创建成功：", room.roomID, room.hostServerList[room.currentServerIndex].Host, room.hostServerList[room.currentServerIndex].Port)
 			room.currentServerIndex++
 			return
 		}
